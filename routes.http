@@ -1,0 +1,51 @@
+# Variável com a URL base da sua API
+@baseUrl = http://localhost:3000
+
+### ==========================================
+### RIDE (Corridas/Viagens)
+### ==========================================
+
+### 1. Criar uma nova Ride
+# Nota: O transportTypeId "1" precisa existir no banco de dados
+POST {{baseUrl}}/ride
+Content-Type: application/json
+
+{
+  "date": "2026-12-01",
+  "hour": "08:30",
+  "city": "São Leo",
+  "complement": "Em frente ao shopping",
+  "name": "Viagem para o Litoral",
+  "transport_type_id": 1, 
+  "total_spots": 15,
+  "obs": "Chegar com 15 minutos de antecedência",
+  "phone": "11999999999"
+}
+
+### 2. Buscar todas as Rides
+GET {{baseUrl}}/ride
+
+### 3. Buscar Rides filtrando por transportType
+GET {{baseUrl}}/ride?transportType=1
+
+### 4. Buscar Ride específica por ID (Substitua o 1 pelo ID real gerado)
+GET {{baseUrl}}/ride/2
+
+
+### ==========================================
+### USER-RIDE (Passageiros)
+### ==========================================
+
+### 5. Adicionar um usuário à Ride
+# O "1" no final da URL é o idRide correspondente ao @Param('idRide')
+POST {{baseUrl}}/user-ride/2
+Content-Type: application/json
+
+{
+  "name": "João da Silva",
+  "phone": "11988887777"
+}
+
+### 6. Buscar todos os usuários de uma Ride específica
+# O "1" no final da URL é o idRide correspondente ao @Param('idRide')
+GET {{baseUrl}}/user-ride/2
