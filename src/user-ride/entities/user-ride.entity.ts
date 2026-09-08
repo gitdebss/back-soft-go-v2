@@ -1,12 +1,14 @@
-import { Column, Entity } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { RideEntity } from "../../ride/entities/ride.entity.js";
 
 @Entity({ name: 'ride_user' })
 export class UserRideEntity {
-    @Column({ name: 'id', type: 'int', primary: true, generated: true })
+    @PrimaryGeneratedColumn({ name: 'id', type: 'int' })
     id: number;
 
-    @Column({ name: 'id_ride', type: 'int' })
-    idRide: number;
+    @ManyToOne(() => RideEntity, { nullable: false })
+    @JoinColumn({ name: 'id_ride' })
+    ride: RideEntity;
 
     @Column({ name: 'name', type: 'varchar', length: 100 })
     name: string;

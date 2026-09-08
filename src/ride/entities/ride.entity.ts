@@ -1,9 +1,9 @@
-import { Column, CreateDateColumn, DeleteDateColumn, Entity, JoinColumn, ManyToOne, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, DeleteDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { TransportRideTypeEntity } from "../../transport-ride-type/entities/transport-ride-type.entity.js";
 
 @Entity({ name: 'ride'})
 export class RideEntity {
-    @Column({ name: 'id', type: 'int', primary: true, generated: true })
+    @PrimaryGeneratedColumn({ name: 'id', type: 'int' })
     id: number;
 
     @Column({ name: 'date', type: 'date' })
