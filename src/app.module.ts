@@ -4,6 +4,7 @@ import { UserRideModule } from './user-ride/user-ride.module.js';
 import { PostgresConfigService } from './config/postgres.config.service.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { TransportRideTypeModule } from './transport-ride-type/transport_ride_type.module.js';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ConfigModule } from '@nestjs/config';
       useClass: PostgresConfigService,
       inject: [PostgresConfigService]
     }),
+    TransportRideTypeModule,
   ],
 })
 export class AppModule {}

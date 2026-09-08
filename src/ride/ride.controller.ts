@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { RideRequestDto } from '../dto/ride.request.dto.js';
+import { RideRequestDto } from './dto/ride.request.dto.js';
 
 @Controller('ride')
 export class RideController {
