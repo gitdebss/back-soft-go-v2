@@ -1,12 +1,25 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { RideRequestDto } from './dto/ride.request.dto.js';
+import { RideCreateDto } from './dto/ride-create.dto.js';
+import { RideService } from './ride.service.js';
 
 @Controller('ride')
 export class RideController {
+    constructor(
+        private readonly rideService: RideService
+    ) { }
 
     @Get()
-    getRides(@Query('transportType') query?: string) { }
+    getRides(@Query('transportType') query?: string) { 
+        return this.rideService.getRides(query);
+    }
+
+    @Get('/:id')
+    getRideById(@Query('id') id: number) { 
+        return this.rideService.getRideById(id);
+    }
 
     @Post()
-    createRide(@Body() rideRequest: RideRequestDto) { }
+    createRide(@Body() rideRequest: RideCreateDto) { 
+        return this.rideService.createRide(rideRequest);
+    }
 }
