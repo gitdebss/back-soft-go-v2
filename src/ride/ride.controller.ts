@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { RideCreateDto } from './dto/ride-create.dto.js';
 import { RideService } from './ride.service.js';
 
@@ -14,7 +14,7 @@ export class RideController {
     }
 
     @Get('/:id')
-    getRideById(@Query('id') id: number) { 
+    getRideById(@Param('id') id: number) { 
         return this.rideService.getRideById(id);
     }
 

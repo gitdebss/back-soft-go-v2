@@ -3,35 +3,50 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { RideEntity } from './entities/ride.entity.js';
 import { Repository } from 'typeorm';
 import { RideCreateDto } from './dto/ride-create.dto.js';
+import { RideMapper } from './mappers/ride.mapper.js';
+import { RideResponseDto } from './dto/ride.response.dto.js';
+import { RideValidator } from './validators/ride.validator.js';
+import { TransportRideTypeEntity } from '../transport-ride-type/entities/transport-ride-type.entity.js';
 
 @Injectable()
 export class RideService {
     constructor(
         @InjectRepository(RideEntity)
-        private readonly rideRepository: Repository<RideEntity>
+        private readonly rideRepository: Repository<RideEntity>,
+        @InjectRepository(TransportRideTypeEntity)
+        private readonly transportTypeRepository: Repository<TransportRideTypeEntity>
     ) { }
 
     async createRide(dto: RideCreateDto): Promise<RideEntity> {
         const { transport_type_id, ...rideData } = dto;
 
+        const transportType = await this.transportTypeRepository.findOne({ where: { id: transport_type_id } });
+
+        RideValidator.validateTransportTypeExists(transportType);
+
         const newRide = this.rideRepository.create({
             ...rideData,
-            transportType: { id: transport_type_id }, 
+            transportType: { id: transport_type_id },
         });
 
         return await this.rideRepository.save(newRide);
     }
 
-    async getRideById(id: number): Promise<RideEntity | null> {
-        return this.rideRepository.findOne({ where: { id } });
+    async getRideById(id: number): Promise<RideResponseDto | null> {
+        const ride = await this.rideRepository.findOne({
+            where: { id },
+            relations: { transportType: true },
+        })
+
+        RideValidator.validateRideExists(ride); 
+
+        return RideMapper.toResponse(ride);
     }
 
     async getRides(query?: string): Promise<RideEntity[]> {
-        if (query) {
-            return this.rideRepository.find({
-                where: { transportType: { id: Number(query) } },
-            });
-        }
-        return this.rideRepository.find();
+        return this.rideRepository.find({
+            where: query ? { transportType: { id: Number(query) } } : undefined,
+            relations: { transportType: true },
+        });
     }
 }
