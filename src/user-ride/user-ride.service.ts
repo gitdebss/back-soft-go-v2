@@ -2,10 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { UserRideEntity } from './entities/user-ride.entity.js';
 import { Repository } from 'typeorm';
 import { UserRideRequestDto } from './dto/user-ride-request.dto.js';
+import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class UserRideService {
     constructor(
+        @InjectRepository(UserRideEntity)
         private readonly userRideRepository: Repository<UserRideEntity>
     ) { }
 

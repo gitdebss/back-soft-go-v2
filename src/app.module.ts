@@ -4,7 +4,7 @@ import { UserRideModule } from './user-ride/user-ride.module.js';
 import { PostgresConfigService } from './config/postgres.config.service.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { TransportRideTypeModule } from './transport-ride-type/transport_ride_type.module.js';
+import { TransportRideTypeModule } from './transport-ride-type/transport-ride-type.module.js';
 
 @Module({
   imports: [
