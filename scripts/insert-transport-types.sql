@@ -1,0 +1,1 @@
+INSERT INTO transport_ride_type (name) VALUES ('Carro'), ('Uber'), ('Ônibus');
