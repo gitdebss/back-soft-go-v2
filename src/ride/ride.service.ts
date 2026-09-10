@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { RideEntity } from './entities/ride.entity.js';
 import { Repository } from 'typeorm';
 import { CreateRideDto } from './dto/create-ride.dto.js';
-import { RideMapper } from './mappers/ride.mapper.js';
+import { RideMapper } from '../utils/mappers/ride.mapper.js';
 import { ResponseRideDto } from './dto/response-ride.dto.js';
 import { TransportRideTypeEntity } from '../transport-ride-type/entities/transport-ride-type.entity.js';
 

@@ -1,5 +1,5 @@
-import { ResponseRideDto } from "../dto/response-ride.dto.js";
-import { RideEntity } from "../entities/ride.entity.js";
+import { ResponseRideDto } from "../../ride/dto/response-ride.dto.js";
+import { RideEntity } from "../../ride/entities/ride.entity.js";
 
 export class RideMapper {
   static toResponse(ride: RideEntity): ResponseRideDto {
