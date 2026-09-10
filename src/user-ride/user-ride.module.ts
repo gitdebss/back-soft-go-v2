@@ -3,10 +3,11 @@ import { UserRideController } from './user-ride.controller.js';
 import { UserRideService } from './user-ride.service.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserRideEntity } from './entities/user-ride.entity.js';
+import { RideEntity } from '../ride/entities/ride.entity.js';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserRideEntity]),
+    TypeOrmModule.forFeature([UserRideEntity, RideEntity]),
   ],
   controllers: [UserRideController],
   providers: [UserRideService]
