@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsOptional, IsPhoneNumber, IsString, MaxLength } from "class-validator";
 
-export class UserRideRequestDto {
+export class CreateUserRideDto {
     @IsString()
     @IsNotEmpty()
     @MaxLength(100)

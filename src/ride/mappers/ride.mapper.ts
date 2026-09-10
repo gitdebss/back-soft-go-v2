@@ -1,8 +1,8 @@
-import { RideResponseDto } from "../dto/ride.response.dto.js";
+import { ResponseRideDto } from "../dto/response-ride.dto.js";
 import { RideEntity } from "../entities/ride.entity.js";
 
 export class RideMapper {
-  static toResponse(ride: RideEntity): RideResponseDto {
+  static toResponse(ride: RideEntity): ResponseRideDto {
     return {
       id: ride.id,
       date: ride.date,

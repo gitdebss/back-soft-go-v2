@@ -9,7 +9,7 @@ import {
     Min,
 } from 'class-validator';
 
-export class RideCreateDto {
+export class CreateRideDto {
     @IsDateString()
     date: string;
 

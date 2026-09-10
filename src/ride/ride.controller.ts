@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
-import { RideCreateDto } from './dto/ride-create.dto.js';
+import { CreateRideDto } from './dto/create-ride.dto.js';
 import { RideService } from './ride.service.js';
 
 @Controller('ride')
@@ -21,7 +21,7 @@ export class RideController {
     }
 
     @Post()
-    async createRide(@Body() rideRequest: RideCreateDto) { 
+    async createRide(@Body() rideRequest: CreateRideDto) { 
         const createdRide = await this.rideService.createRide(rideRequest)
         return createdRide;
     }

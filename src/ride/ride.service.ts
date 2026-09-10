@@ -2,9 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RideEntity } from './entities/ride.entity.js';
 import { Repository } from 'typeorm';
-import { RideCreateDto } from './dto/ride-create.dto.js';
+import { CreateRideDto } from './dto/create-ride.dto.js';
 import { RideMapper } from './mappers/ride.mapper.js';
-import { RideResponseDto } from './dto/ride.response.dto.js';
+import { ResponseRideDto } from './dto/response-ride.dto.js';
 import { TransportRideTypeEntity } from '../transport-ride-type/entities/transport-ride-type.entity.js';
 
 @Injectable()
@@ -16,7 +16,7 @@ export class RideService {
         private readonly transportTypeRepository: Repository<TransportRideTypeEntity>
     ) { }
 
-    async createRide(dto: RideCreateDto): Promise<RideEntity> {
+    async createRide(dto: CreateRideDto): Promise<RideEntity> {
         const { transport_type_id, ...rideData } = dto;
 
         const transportType = await this.transportTypeRepository.findOne({ where: { id: transport_type_id } });
@@ -31,7 +31,7 @@ export class RideService {
         return await this.rideRepository.save(newRide);
     }
 
-    async getRideById(id: number): Promise<RideResponseDto | null> {
+    async getRideById(id: number): Promise<ResponseRideDto | null> {
         const ride = await this.rideRepository.findOne({
             where: { id },
             relations: { transportType: true },

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { UserRideEntity } from './entities/user-ride.entity.js';
 import { Repository } from 'typeorm';
-import { UserRideRequestDto } from './dto/user-ride-request.dto.js';
+import { CreateUserRideDto } from './dto/create-user-ride.dto.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RideEntity } from '../ride/entities/ride.entity.js';
 
@@ -14,7 +14,7 @@ export class UserRideService {
         private readonly rideRepository: Repository<RideEntity>
     ) { }
 
-    async createUserRide(userRideRequest: UserRideRequestDto, idRide: number): Promise<UserRideEntity> {
+    async createUserRide(userRideRequest: CreateUserRideDto, idRide: number): Promise<UserRideEntity> {
 
         const ride = await this.rideRepository.findOne({ where: { id: idRide } });
 

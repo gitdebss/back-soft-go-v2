@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
-import { UserRideRequestDto } from './dto/user-ride-request.dto.js';
+import { CreateUserRideDto } from './dto/create-user-ride.dto.js';
 import { UserRideService } from './user-ride.service.js';
 
 @Controller('user-ride')
@@ -9,7 +9,7 @@ export class UserRideController {
     ) { }
 
     @Post('/:idRide')
-    async createUserRide(@Body() userRideRequest: UserRideRequestDto, @Param('idRide', ParseIntPipe) idRide: number) {
+    async createUserRide(@Body() userRideRequest: CreateUserRideDto, @Param('idRide', ParseIntPipe) idRide: number) {
         const createdUser = await this.userRideService.createUserRide(userRideRequest, idRide)
         return createdUser;
     }

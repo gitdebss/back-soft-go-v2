@@ -1,6 +1,6 @@
 import { TransportRideTypeEntity } from "../../transport-ride-type/entities/transport-ride-type.entity.js";
 
-export class RideResponseDto {
+export class ResponseRideDto {
     id: number;
     date: Date;
     hour: string;
