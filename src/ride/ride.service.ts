@@ -1,11 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RideEntity } from './entities/ride.entity.js';
 import { Repository } from 'typeorm';
 import { RideCreateDto } from './dto/ride-create.dto.js';
 import { RideMapper } from './mappers/ride.mapper.js';
 import { RideResponseDto } from './dto/ride.response.dto.js';
-import { RideValidator } from './validators/ride.validator.js';
 import { TransportRideTypeEntity } from '../transport-ride-type/entities/transport-ride-type.entity.js';
 
 @Injectable()
@@ -22,7 +21,7 @@ export class RideService {
 
         const transportType = await this.transportTypeRepository.findOne({ where: { id: transport_type_id } });
 
-        RideValidator.validateTransportTypeExists(transportType);
+        if (!transportType) throw new NotFoundException('Tipo de transporte não encontrado');
 
         const newRide = this.rideRepository.create({
             ...rideData,
@@ -38,7 +37,7 @@ export class RideService {
             relations: { transportType: true },
         })
 
-        RideValidator.validateRideExists(ride); 
+        if (!ride) throw new NotFoundException('Corrida não encontrada');
 
         return RideMapper.toResponse(ride);
     }
