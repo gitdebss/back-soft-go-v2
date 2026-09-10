@@ -14,6 +14,12 @@ export class UserRideController {
         return createdUser;
     }
 
+    @Get()
+    async getUserRides() {
+        const users = await this.userRideService.getUserRides();
+        return users;
+    }
+
     @Get('/:idRide')
     async getUserRidesByRideId(@Param('idRide', ParseIntPipe) idRide: number) {
         const users = await this.userRideService.getUserRidesByRideId(idRide);

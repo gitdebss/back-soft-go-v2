@@ -28,6 +28,10 @@ export class UserRideService {
         return await this.userRideRepository.save(newUserRide);
     }
 
+    async getUserRides(): Promise<UserRideEntity[]> {
+        return this.userRideRepository.find();
+    }
+
     async getUserRidesByRideId(idRide: number): Promise<UserRideEntity[]> {
         const ride = await this.rideRepository.findOne({ where: { id: idRide } });
 
