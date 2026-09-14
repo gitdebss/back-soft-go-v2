@@ -3,43 +3,43 @@ import { TransportRideTypeEntity } from "../../transport-ride-type/entities/tran
 
 @Entity({ name: 'ride'})
 export class RideEntity {
-    @PrimaryGeneratedColumn({ name: 'id', type: 'int' })
+    @PrimaryGeneratedColumn()
     id: number;
 
-    @Column({ name: 'date', type: 'date' })
+    @Column()
     date: Date;
 
-    @Column({ name: 'hour', type: 'time' })
+    @Column()
     hour: string;
 
-    @Column({ name: 'city', type: 'varchar', length: 100 })
+    @Column()
     city: string;
 
-    @Column({ name: 'complement', type: 'varchar', length: 200 })
+    @Column({ nullable: true })
     complement?: string;
 
-    @Column({ name: 'name', type: 'varchar', length: 100 })
+    @Column()
     name: string;
 
     @ManyToOne(() => TransportRideTypeEntity, { nullable: false })
     @JoinColumn({ name: 'transport_type_id' })
     transportType: TransportRideTypeEntity;
 
-    @Column({ name: 'total_spots', type: 'int' })
+    @Column()
     total_spots: number;
 
-    @Column({ name: 'obs', type: 'varchar', length: 200 })
+    @Column({ nullable: true })
     obs?: string;
 
-    @Column({ name: 'phone', type: 'varchar', length: 15 })
+    @Column({ nullable: true })
     phone?: string;
 
-    @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
+    @CreateDateColumn()
     created_at: Date;
 
-    @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
+    @UpdateDateColumn({ nullable: true })
     updated_at: Date;
 
-    @DeleteDateColumn({ name: 'deleted_at', type: 'timestamp' })
+    @DeleteDateColumn({ nullable: true })
     deleted_at: Date;
 }

@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { RideModule } from './ride/ride.module.js';
 import { UserRideModule } from './user-ride/user-ride.module.js';
-import { PostgresConfigService } from './config/postgres.config.service.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { TransportRideTypeModule } from './transport-ride-type/transport-ride-type.module.js';
+import { dataSourceOptions } from './config/typeorm.config.js';
 
 @Module({
   imports: [
@@ -13,10 +13,7 @@ import { TransportRideTypeModule } from './transport-ride-type/transport-ride-ty
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    TypeOrmModule.forRootAsync({
-      useClass: PostgresConfigService,
-      inject: [PostgresConfigService]
-    }),
+    TypeOrmModule.forRoot(dataSourceOptions),
     TransportRideTypeModule,
   ],
 })
