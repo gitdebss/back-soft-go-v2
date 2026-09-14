@@ -4,7 +4,8 @@ import { UserRideModule } from './user-ride/user-ride.module.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { TransportRideTypeModule } from './transport-ride-type/transport-ride-type.module.js';
-import { dataSourceOptions } from './config/typeorm.config.js';
+import { dataSourceOptions } from './config/datasource.config.js';
+import { PostgresConfigService } from './config/postgres.config.service.js';
 
 @Module({
   imports: [
@@ -14,6 +15,10 @@ import { dataSourceOptions } from './config/typeorm.config.js';
       isGlobal: true,
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
+    TypeOrmModule.forRootAsync({
+      useClass: PostgresConfigService,
+      inject: [PostgresConfigService]
+    }),
     TransportRideTypeModule,
   ],
 })
