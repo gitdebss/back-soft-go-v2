@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs
 import { CreateRideDto } from './dto/create-ride.dto.js';
 import { RideService } from './ride.service.js';
 
-@Controller('ride')
+@Controller('rides')
 export class RideController {
     constructor(
         private readonly rideService: RideService

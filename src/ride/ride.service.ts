@@ -16,7 +16,7 @@ export class RideService {
         private readonly transportTypeRepository: Repository<TransportRideTypeEntity>
     ) { }
 
-    async createRide(dto: CreateRideDto): Promise<RideEntity> {
+    async createRide(dto: CreateRideDto): Promise<ResponseRideDto> {
         const { transport_type_id, ...rideData } = dto;
 
         const transportType = await this.transportTypeRepository.findOne({ where: { id: transport_type_id } });
@@ -28,7 +28,7 @@ export class RideService {
             transportType: { id: transport_type_id },
         });
 
-        return await this.rideRepository.save(newRide);
+        return RideMapper.toResponse(await this.rideRepository.save(newRide));
     }
 
     async getRideById(id: number): Promise<ResponseRideDto | null> {
@@ -42,10 +42,12 @@ export class RideService {
         return RideMapper.toResponse(ride);
     }
 
-    async getRides(query?: string): Promise<RideEntity[]> {
-        return this.rideRepository.find({
+    async getRides(query?: string): Promise<ResponseRideDto[]> {
+        const rides = await this.rideRepository.find({
             where: query ? { transportType: { id: Number(query) } } : undefined,
             relations: { transportType: true },
-        });
+        })
+        
+        return rides.map((ride) => RideMapper.toResponse(ride)) ;
     }
 }
