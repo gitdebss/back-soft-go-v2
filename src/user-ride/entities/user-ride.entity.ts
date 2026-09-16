@@ -6,9 +6,8 @@ export class UserRideEntity {
     @PrimaryGeneratedColumn({ name: 'id', type: 'int' })
     id: number;
 
-    @ManyToOne(() => RideEntity, { nullable: false })
-    @JoinColumn({ name: 'id_ride' })
-    ride: RideEntity;
+    @Column({ name: 'id_ride' })
+    idRide: number
 
     @Column({ name: 'name', type: 'varchar', length: 100 })
     name: string;

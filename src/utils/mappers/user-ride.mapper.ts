@@ -7,21 +7,6 @@ export class UserRideMapper {
             id: user.id,
             name: user.name,
             phone: user.phone,
-            ride: {
-                id: user.ride.id,
-                date: user.ride.date,
-                hour: user.ride.hour,
-                city: user.ride.city,
-                complement: user.ride.complement,
-                name: user.ride.name,
-                phone: user.ride.phone,
-                transportType: {
-                    id: user.ride.transportType.id,
-                    name: user.ride.transportType.name,
-                },
-                total_spots: user.ride.total_spots,
-                obs: user.ride.obs,
-            },
         };
     }
 }

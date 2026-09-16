@@ -1,7 +1,8 @@
-import { Column, CreateDateColumn, DeleteDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, DeleteDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { TransportRideTypeEntity } from "../../transport-ride-type/entities/transport-ride-type.entity.js";
+import { UserRideEntity } from "../../user-ride/entities/user-ride.entity.js";
 
-@Entity({ name: 'ride'})
+@Entity({ name: 'ride' })
 export class RideEntity {
     @PrimaryGeneratedColumn()
     id: number;
@@ -25,8 +26,8 @@ export class RideEntity {
     @JoinColumn({ name: 'transport_type_id' })
     transportType: TransportRideTypeEntity;
 
-    @Column()
-    total_spots: number;
+    @Column({ name: 'total_spots' })
+    totalSpots: number;
 
     @Column({ nullable: true })
     obs?: string;

@@ -2,7 +2,7 @@ import { ResponseRideDto } from "../../ride/dto/response-ride.dto.js";
 import { RideEntity } from "../../ride/entities/ride.entity.js";
 
 export class RideMapper {
-  static toResponse(ride: RideEntity): ResponseRideDto {
+  static toResponse(ride: RideEntity, occupiedSpots: number): ResponseRideDto {
     return {
       id: ride.id,
       date: ride.date,
@@ -15,7 +15,9 @@ export class RideMapper {
         id: ride.transportType.id,
         name: ride.transportType.name,
       },
-      total_spots: ride.total_spots,
+      totalSpots: ride.totalSpots,
+      occupiedSpots: occupiedSpots,
+      availableSpots: ride.totalSpots - occupiedSpots,
       obs: ride.obs,
     };
   }

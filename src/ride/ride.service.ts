@@ -6,12 +6,15 @@ import { CreateRideDto } from './dto/create-ride.dto.js';
 import { RideMapper } from '../utils/mappers/ride.mapper.js';
 import { ResponseRideDto } from './dto/response-ride.dto.js';
 import { TransportRideTypeEntity } from '../transport-ride-type/entities/transport-ride-type.entity.js';
+import { UserRideEntity } from '../user-ride/entities/user-ride.entity.js';
 
 @Injectable()
 export class RideService {
     constructor(
         @InjectRepository(RideEntity)
         private readonly rideRepository: Repository<RideEntity>,
+        @InjectRepository(UserRideEntity)
+        private readonly userRideRepository: Repository<UserRideEntity>,
         @InjectRepository(TransportRideTypeEntity)
         private readonly transportTypeRepository: Repository<TransportRideTypeEntity>
     ) { }
@@ -28,7 +31,7 @@ export class RideService {
             transportType: { id: transport_type_id },
         });
 
-        return RideMapper.toResponse(await this.rideRepository.save(newRide));
+        return RideMapper.toResponse(await this.rideRepository.save(newRide), 0);
     }
 
     async getRideById(id: number): Promise<ResponseRideDto | null> {
@@ -39,15 +42,35 @@ export class RideService {
 
         if (!ride) throw new NotFoundException('Corrida não encontrada');
 
-        return RideMapper.toResponse(ride);
+        const occupiedSpots = await this.userRideRepository.count({
+            where: {
+                idRide: ride.id,
+            },
+        })
+
+        return RideMapper.toResponse(ride, occupiedSpots ?? 0);
     }
 
     async getRides(query?: string): Promise<ResponseRideDto[]> {
         const rides = await this.rideRepository.find({
-            where: query ? { transportType: { id: Number(query) } } : undefined,
+            where: query
+                ? { transportType: { id: Number(query) } }
+                : undefined,
             relations: { transportType: true },
-        })
-        
-        return rides.map((ride) => RideMapper.toResponse(ride)) ;
+        });
+
+        const responseRides = await Promise.all(
+            rides.map(async (ride) => {
+                const occupiedSpots = await this.userRideRepository.count({
+                    where: {
+                        idRide: ride.id,
+                    },
+                });
+
+                return RideMapper.toResponse(ride, occupiedSpots);
+            }),
+        );
+
+        return responseRides;
     }
 }

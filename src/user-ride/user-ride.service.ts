@@ -24,7 +24,7 @@ export class UserRideService {
 
         const newUserRide = this.userRideRepository.create({
             ...userRideRequest,
-            ride: { id: idRide }, 
+            idRide: idRide, 
         });
 
         return UserRideMapper.toResponse(await this.userRideRepository.save(newUserRide));
@@ -42,8 +42,7 @@ export class UserRideService {
         if (!ride) throw new NotFoundException('Corrida não encontrada');
 
         const users = await this.userRideRepository.find({
-            where: { ride: { id: idRide } },
-            relations: { ride: true },
+            where: { idRide: ride.id },
         })
 
         return users.map((user) => UserRideMapper.toResponse(user));
