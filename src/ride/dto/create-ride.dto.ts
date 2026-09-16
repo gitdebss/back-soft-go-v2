@@ -34,11 +34,11 @@ export class CreateRideDto {
 
     @IsInt()
     @Min(1)
-    transport_type_id: number;
+    transportTypeId: number;
 
     @IsInt()
     @Min(1)
-    total_spots: number;
+    totalSpots: number;
 
     @IsOptional()
     @IsString()
@@ -47,6 +47,5 @@ export class CreateRideDto {
 
     @IsOptional()
     @MaxLength(15)
-    @IsPhoneNumber('BR')
     phone?: string;
 }

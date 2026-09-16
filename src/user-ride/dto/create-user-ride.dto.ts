@@ -8,6 +8,5 @@ export class CreateUserRideDto {
 
     @IsOptional()
     @MaxLength(15)
-    @IsPhoneNumber('BR')
     phone?: string
 }

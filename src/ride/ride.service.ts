@@ -20,15 +20,15 @@ export class RideService {
     ) { }
 
     async createRide(dto: CreateRideDto): Promise<ResponseRideDto> {
-        const { transport_type_id, ...rideData } = dto;
+        const { transportTypeId, ...rideData } = dto;
 
-        const transportType = await this.transportTypeRepository.findOne({ where: { id: transport_type_id } });
+        const transportType = await this.transportTypeRepository.findOne({ where: { id: transportTypeId } });
 
         if (!transportType) throw new NotFoundException('Tipo de transporte não encontrado');
 
         const newRide = this.rideRepository.create({
             ...rideData,
-            transportType: { id: transport_type_id },
+            transportType: { id: transportTypeId },
         });
 
         return RideMapper.toResponse(await this.rideRepository.save(newRide), 0);
