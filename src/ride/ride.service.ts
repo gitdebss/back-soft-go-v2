@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RideEntity } from './entities/ride.entity.js';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { CreateRideDto } from './dto/create-ride.dto.js';
 import { RideMapper } from '../utils/mappers/ride.mapper.js';
 import { ResponseRideDto } from './dto/response-ride.dto.js';
@@ -51,13 +51,29 @@ export class RideService {
         return RideMapper.toResponse(ride, occupiedSpots ?? 0);
     }
 
-    async getRides(query?: string): Promise<ResponseRideDto[]> {
+    async getRides(transportType?: string, date?: string): Promise<ResponseRideDto[]> {
+        const transportTypes = transportType
+            ? transportType.split(",").map(Number)
+            : undefined
+
+        const dateQuery = date
+            ? new Date(date)
+            : undefined
+
         const rides = await this.rideRepository.find({
-            where: query
-                ? { transportType: { id: Number(query) } }
-                : undefined,
+            where: {
+                ...(transportTypes && {
+                    transportType: {
+                        id: In(transportTypes),
+                    },
+                }),
+
+                ...(dateQuery && {
+                    date: dateQuery,
+                }),
+            },
             relations: { transportType: true },
-        });
+        })
 
         const responseRides = await Promise.all(
             rides.map(async (ride) => {

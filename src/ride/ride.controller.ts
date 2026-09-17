@@ -9,8 +9,8 @@ export class RideController {
     ) { }
 
     @Get()
-    async getRides(@Query('transportType') query?: string) { 
-        const rides = await this.rideService.getRides(query)
+    async getRides(@Query('transportType') transportType?: string, @Query('date') date?: string) { 
+        const rides = await this.rideService.getRides(transportType, date)
         return rides;
     }
 

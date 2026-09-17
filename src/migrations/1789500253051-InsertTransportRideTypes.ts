@@ -7,8 +7,8 @@ export class InsertTransportRideTypes1789500253051 implements MigrationInterface
         await queryRunner.query(`
             INSERT INTO transport_ride_type (name)
             VALUES
-                ('Uber'),
                 ('Carro'),
+                ('Uber'),
                 ('Ônibus');
         `);
     }
