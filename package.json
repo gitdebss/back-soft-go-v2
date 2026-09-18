@@ -23,7 +23,7 @@
     "typeorm": "node --loader ts-node/esm ./node_modules/typeorm/cli.js",
     "migration:generate": "npm run typeorm -- migration:generate -d src/config/datasource.config.ts src/migrations/InsertTransportRideTypes",
     "migration:run": "npm run typeorm -- migration:run -d src/config/datasource.config.ts",
-    "migration:revert": "npm run typeorm -- migration:revert"
+    "migration:revert": "npm run typeorm -- migration:revert -d src/config/datasource.config.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
