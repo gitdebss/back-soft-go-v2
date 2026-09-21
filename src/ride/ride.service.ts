@@ -57,8 +57,7 @@ export class RideService {
             : undefined
 
         const dateQuery = date
-            ? new Date(date)
-            : undefined
+            ?? undefined
 
         const rides = await this.rideRepository.find({
             where: {

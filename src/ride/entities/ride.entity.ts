@@ -7,8 +7,8 @@ export class RideEntity {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column()
-    date: Date;
+    @Column({ type: 'date' })
+    date: string;
 
     @Column()
     hour: string;

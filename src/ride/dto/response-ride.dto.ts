@@ -2,7 +2,7 @@ import { TransportRideTypeEntity } from "../../transport-ride-type/entities/tran
 
 export class ResponseRideDto {
     id: number;
-    date: Date;
+    date: string;
     hour: string;
     city: string;
     name: string;
