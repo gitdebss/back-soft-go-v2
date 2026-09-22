@@ -47,6 +47,6 @@ export class CreateRideDto {
 
     @IsOptional()
     @MaxLength(15)
-    @IsPhoneNumber()
+    @IsPhoneNumber('BR')
     phone?: string;
 }
