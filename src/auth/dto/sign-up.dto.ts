@@ -1,15 +1,20 @@
-import { IsEmail, IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 
-// SPEC_DEVIATION: values are trimmed via @Transform for validation purposes only
-// (a whitespace-only name/password must fail @IsNotEmpty/@MinLength as "required",
-// per spec.md's Edge Cases). Since main.ts's global ValidationPipe does not set
+// SPEC_DEVIATION: `name` is trimmed via @Transform for validation purposes only
+// (a whitespace-only name must fail @IsNotEmpty as "required", per spec.md's
+// Edge Cases). Since main.ts's global ValidationPipe does not set
 // { transform: true }, the trimmed entity is used to run class-validator's checks
 // but NOT returned to the controller (Nest's ValidationPipe always validates
 // against a plainToInstance-transformed entity regardless of the transform
-// option; only the returned value differs) - so a value with real content
+// option; only the returned value differs) - so a name with real content
 // surrounded by whitespace still reaches the service untrimmed, unchanged from
 // prior behavior.
+// `password` is deliberately NOT trimmed: a signup that silently trimmed the
+// password before hashing it would hash a different string than a later login
+// sends (login never trims), locking out a user whose password has meaningful
+// leading/trailing whitespace. @Matches(/\S/) rejects a whitespace-only
+// password as "required" without mutating the value that gets hashed.
 // Reason: keeps this fix scoped to DTO validation only; main.ts is out of scope.
 function trimIfString({ value }: { value: unknown }): unknown {
     return typeof value === 'string' ? value.trim() : value;
@@ -26,9 +31,9 @@ export class SignUpDto {
     @IsNotEmpty()
     email: string;
 
-    @Transform(trimIfString)
     @IsString()
     @IsNotEmpty()
     @MinLength(8)
+    @Matches(/\S/, { message: 'password must not be blank' })
     password: string;
 }

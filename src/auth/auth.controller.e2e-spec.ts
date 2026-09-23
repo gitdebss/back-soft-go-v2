@@ -220,6 +220,25 @@ describe('AuthController (e2e)', () => {
             expect(response.status).toBe(401);
             expect(response.body.message).toBe('E-mail ou senha inválidos');
         });
+
+        it('logs in with the exact same padded password used at signup, proving the password is never silently trimmed before hashing (regression)', async () => {
+            const paddedPassword = '  MyPass123  ';
+
+            const signupResponse = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Espacos Login',
+                email: 'espacoslogin@example.com',
+                password: paddedPassword,
+            });
+            expect(signupResponse.status).toBe(201);
+
+            const loginResponse = await request(app.getHttpServer()).post('/auth/login').send({
+                email: 'espacoslogin@example.com',
+                password: paddedPassword,
+            });
+
+            expect(loginResponse.status).toBe(200);
+            expect(typeof loginResponse.body.data.accessToken).toBe('string');
+        });
     });
 
     describe('GET /auth/me', () => {
