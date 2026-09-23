@@ -1,5 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { JwtService } from '@nestjs/jwt';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
@@ -24,6 +25,7 @@ describe('AuthController (e2e)', () => {
     // DataSource.query() needs no entity metadata and works against either
     // duplicate 'default' connection, since both point at the same physical DB.
     let dataSource: DataSource;
+    let jwtService: JwtService;
 
     beforeAll(async () => {
         const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -36,6 +38,7 @@ describe('AuthController (e2e)', () => {
         await app.init();
 
         dataSource = moduleFixture.get(DataSource);
+        jwtService = moduleFixture.get(JwtService);
     });
 
     afterAll(async () => {
@@ -216,6 +219,36 @@ describe('AuthController (e2e)', () => {
 
         it('responds 401 without a bearer token (AUTH-18)', async () => {
             const response = await request(app.getHttpServer()).get('/auth/me');
+
+            expect(response.status).toBe(401);
+        });
+
+        it('responds 401 with an expired bearer token for a user that still exists (AUTH-12, AUTH-18)', async () => {
+            const signupResponse = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Expirada User',
+                email: 'expirada@example.com',
+                password: 'senha1234',
+            });
+            const userId = signupResponse.body.data.id;
+
+            // Signed for a real, still-existing user id so a 401 here can only come
+            // from the expiration check, not from "user not found" (JwtStrategy.validate).
+            const expiredToken = jwtService.sign(
+                { sub: userId, name: 'Expirada User', email: 'expirada@example.com' },
+                { expiresIn: '-10s' },
+            );
+
+            const response = await request(app.getHttpServer())
+                .get('/auth/me')
+                .set('Authorization', `Bearer ${expiredToken}`);
+
+            expect(response.status).toBe(401);
+        });
+
+        it('responds 401 with a malformed bearer token (AUTH-12, AUTH-18)', async () => {
+            const response = await request(app.getHttpServer())
+                .get('/auth/me')
+                .set('Authorization', 'Bearer not.a.valid.jwt');
 
             expect(response.status).toBe(401);
         });
