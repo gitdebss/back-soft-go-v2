@@ -7,6 +7,7 @@ import { TransportRideTypeModule } from './transport-ride-type/transport-ride-ty
 import { dataSourceOptions } from './config/datasource.config.js';
 import { PostgresConfigService } from './config/postgres.config.service.js';
 import { UserModule } from './user/user.module.js';
+import { AuthModule } from './auth/auth.module.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { UserModule } from './user/user.module.js';
     }),
     TransportRideTypeModule,
     UserModule,
+    AuthModule,
   ],
 })
 export class AppModule {}
