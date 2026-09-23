@@ -145,6 +145,36 @@ describe('AuthController (e2e)', () => {
 
             expect(response.status).toBe(400);
         });
+
+        it('rejects a whitespace-only password with 400, as a required field (edge case)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Débora',
+                email: 'senhaespacos@example.com',
+                password: '        ',
+            });
+
+            expect(response.status).toBe(400);
+        });
+
+        it('rejects a whitespace-only name with 400, as a required field (edge case)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: '   ',
+                email: 'nomeespacos@example.com',
+                password: 'senha1234',
+            });
+
+            expect(response.status).toBe(400);
+        });
+
+        it('accepts a name and password with real content surrounded by whitespace (edge case)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: '  Débora  ',
+                email: 'espacosvalidos@example.com',
+                password: '  senha1234  ',
+            });
+
+            expect(response.status).toBe(201);
+        });
     });
 
     describe('POST /auth/login', () => {
