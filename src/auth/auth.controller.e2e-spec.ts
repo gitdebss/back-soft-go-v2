@@ -1,0 +1,223 @@
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { DataSource } from 'typeorm';
+import request from 'supertest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { AppModule } from '../app.module.js';
+import { TransformInterceptor } from '../utils/interceptor/interceptor.js';
+
+function decodeJwtPayload(token: string): { sub: number; name: string; email: string; iat: number; exp: number } {
+    const payloadSegment = token.split('.')[1];
+    const json = Buffer.from(payloadSegment, 'base64url').toString('utf8');
+    return JSON.parse(json);
+}
+
+describe('AuthController (e2e)', () => {
+    let app: INestApplication;
+    // SPEC_DEVIATION: reads/writes the `users` table via raw SQL on the DataSource
+    // instead of an injected Repository<UserEntity>.
+    // Reason: app.module.ts registers TypeOrmModule twice (forRoot + forRootAsync,
+    // pre-existing redundancy documented in design.md's Risks table, out of scope
+    // for this feature). In the test module, `getRepositoryToken(UserEntity)`
+    // resolves against a connection whose entity metadata doesn't match the
+    // TS-imported UserEntity class, throwing EntityMetadataNotFoundError. Raw
+    // DataSource.query() needs no entity metadata and works against either
+    // duplicate 'default' connection, since both point at the same physical DB.
+    let dataSource: DataSource;
+
+    beforeAll(async () => {
+        const moduleFixture: TestingModule = await Test.createTestingModule({
+            imports: [AppModule],
+        }).compile();
+
+        app = moduleFixture.createNestApplication();
+        app.useGlobalPipes(new ValidationPipe());
+        app.useGlobalInterceptors(new TransformInterceptor());
+        await app.init();
+
+        dataSource = moduleFixture.get(DataSource);
+    });
+
+    afterAll(async () => {
+        await app.close();
+    });
+
+    beforeEach(async () => {
+        await dataSource.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
+    });
+
+    describe('POST /auth/signup', () => {
+        it('creates the account and returns the public profile without the password hash (AUTH-01)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Débora',
+                email: 'debora@example.com',
+                password: 'senha1234',
+            });
+
+            expect(response.status).toBe(201);
+            expect(response.body.data).toEqual({
+                id: expect.any(Number),
+                name: 'Débora',
+                email: 'debora@example.com',
+            });
+            expect(response.body.data.passwordHash).toBeUndefined();
+
+            const rows = await dataSource.query('SELECT password_hash FROM users WHERE email = $1', [
+                'debora@example.com',
+            ]);
+            expect(rows[0].password_hash).not.toBe('senha1234');
+            expect(rows[0].password_hash).toMatch(/^\$2[aby]\$/);
+        });
+
+        it('rejects a duplicate email with 409 and the exact message "e-mail já cadastrado" (AUTH-02)', async () => {
+            await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Débora',
+                email: 'duplicada@example.com',
+                password: 'senha1234',
+            });
+
+            const response = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Outra Débora',
+                email: 'duplicada@example.com',
+                password: 'outrasenha',
+            });
+
+            expect(response.status).toBe(409);
+            expect(response.body.message).toBe('e-mail já cadastrado');
+        });
+
+        it('accepts only one of two simultaneous signups with the same email, rejecting the other as duplicate (AUTH-06)', async () => {
+            const payload = { name: 'Concorrente', email: 'concorrente@example.com', password: 'senha1234' };
+
+            const [first, second] = await Promise.all([
+                request(app.getHttpServer()).post('/auth/signup').send(payload),
+                request(app.getHttpServer()).post('/auth/signup').send(payload),
+            ]);
+
+            const statuses = [first.status, second.status].sort();
+            expect(statuses).toEqual([201, 409]);
+
+            const rows = await dataSource.query('SELECT id FROM users WHERE email = $1', [
+                'concorrente@example.com',
+            ]);
+            expect(rows).toHaveLength(1);
+        });
+
+        it('rejects a password shorter than 8 characters with 400 (AUTH-03)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Débora',
+                email: 'senhacurta@example.com',
+                password: 'short1',
+            });
+
+            expect(response.status).toBe(400);
+        });
+
+        it('rejects an invalid email format with 400 (AUTH-05)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Débora',
+                email: 'not-an-email',
+                password: 'senha1234',
+            });
+
+            expect(response.status).toBe(400);
+        });
+
+        it('rejects a missing required field (empty name) with 400 (AUTH-05)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: '',
+                email: 'semnome@example.com',
+                password: 'senha1234',
+            });
+
+            expect(response.status).toBe(400);
+        });
+
+        it('rejects a name longer than 100 characters with 400 (edge case)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'a'.repeat(101),
+                email: 'nomegrande@example.com',
+                password: 'senha1234',
+            });
+
+            expect(response.status).toBe(400);
+        });
+    });
+
+    describe('POST /auth/login', () => {
+        beforeEach(async () => {
+            await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Login User',
+                email: 'login@example.com',
+                password: 'senha1234',
+            });
+        });
+
+        it('authenticates with correct credentials and returns a JWT with sub/name/email claims expiring in 7 days (AUTH-07, AUTH-11)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/login').send({
+                email: 'login@example.com',
+                password: 'senha1234',
+            });
+
+            expect(response.status).toBe(200);
+            expect(typeof response.body.data.accessToken).toBe('string');
+
+            const payload = decodeJwtPayload(response.body.data.accessToken);
+            expect(payload.name).toBe('Login User');
+            expect(payload.email).toBe('login@example.com');
+            expect(payload.exp - payload.iat).toBe(7 * 24 * 60 * 60);
+        });
+
+        it('rejects a wrong password with 401 and the generic message (AUTH-08)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/login').send({
+                email: 'login@example.com',
+                password: 'senha-errada',
+            });
+
+            expect(response.status).toBe(401);
+            expect(response.body.message).toBe('E-mail ou senha inválidos');
+        });
+
+        it('rejects an unknown email with 401 and the exact same generic message as a wrong password (AUTH-08)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/login').send({
+                email: 'nao-existe@example.com',
+                password: 'senha1234',
+            });
+
+            expect(response.status).toBe(401);
+            expect(response.body.message).toBe('E-mail ou senha inválidos');
+        });
+    });
+
+    describe('GET /auth/me', () => {
+        it('returns the authenticated profile with a valid bearer token (AUTH-17)', async () => {
+            await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Perfil User',
+                email: 'perfil@example.com',
+                password: 'senha1234',
+            });
+            const loginResponse = await request(app.getHttpServer()).post('/auth/login').send({
+                email: 'perfil@example.com',
+                password: 'senha1234',
+            });
+            const token = loginResponse.body.data.accessToken;
+
+            const response = await request(app.getHttpServer())
+                .get('/auth/me')
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(response.status).toBe(200);
+            expect(response.body.data).toEqual({
+                id: expect.any(Number),
+                name: 'Perfil User',
+                email: 'perfil@example.com',
+            });
+        });
+
+        it('responds 401 without a bearer token (AUTH-18)', async () => {
+            const response = await request(app.getHttpServer()).get('/auth/me');
+
+            expect(response.status).toBe(401);
+        });
+    });
+});
