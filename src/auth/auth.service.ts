@@ -6,7 +6,7 @@ import { UserEntity } from '../user/entities/user.entity.js';
 import { SignUpDto } from './dto/sign-up.dto.js';
 
 const SALT_ROUNDS = 10;
-const DUPLICATE_EMAIL_MESSAGE = 'e-mail já cadastrado';
+const DUPLICATE_EMAIL_MESSAGE = 'E-mail já cadastrado';
 const INVALID_CREDENTIALS_MESSAGE = 'E-mail ou senha inválidos';
 const POSTGRES_UNIQUE_VIOLATION_CODE = '23505';
 
