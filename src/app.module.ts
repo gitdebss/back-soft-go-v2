@@ -6,10 +6,11 @@ import { ConfigModule } from '@nestjs/config';
 import { TransportRideTypeModule } from './transport-ride-type/transport-ride-type.module.js';
 import { dataSourceOptions } from './config/datasource.config.js';
 import { PostgresConfigService } from './config/postgres.config.service.js';
+import { UserModule } from './user/user.module.js';
 
 @Module({
   imports: [
-    RideModule, 
+    RideModule,
     UserRideModule,
     ConfigModule.forRoot({
       isGlobal: true,
@@ -20,6 +21,7 @@ import { PostgresConfigService } from './config/postgres.config.service.js';
       inject: [PostgresConfigService]
     }),
     TransportRideTypeModule,
+    UserModule,
   ],
 })
 export class AppModule {}
