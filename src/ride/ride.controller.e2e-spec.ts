@@ -243,6 +243,86 @@ describe('RideController / UserRideController (e2e)', () => {
             expect(asStranger.body.data[0].alreadyJoined).toBe(false);
         });
 
+        it('leaves rides whose date already passed out of the board (PAST-01)', async () => {
+            const owner = await signUpAndLogin('datas@example.com');
+
+            // Datas relativas ao dia em que o teste roda: uma data fixa passaria
+            // a mentir assim que o calendário andasse.
+            await dataSource.query(
+                `INSERT INTO ride (date, hour, city, total_spots, transport_type_id, user_id)
+                 VALUES (CURRENT_DATE - 1, '08:00', 'Ontem', 3, 1, $1),
+                        (CURRENT_DATE,     '08:00', 'Hoje',  3, 1, $1),
+                        (CURRENT_DATE + 1, '08:00', 'Amanhã', 3, 1, $1)`,
+                [owner.id],
+            );
+
+            const response = await request(app.getHttpServer()).get('/rides');
+
+            const cities = response.body.data.map((ride: { city: string }) => ride.city);
+
+            expect(cities).toHaveLength(2);
+            expect(cities).toContain('Hoje');
+            expect(cities).toContain('Amanhã');
+            expect(cities).not.toContain('Ontem');
+        });
+
+        it('keeps a ride happening today, whatever the hour on it (PAST-02)', async () => {
+            const owner = await signUpAndLogin('hojecedo@example.com');
+
+            await dataSource.query(
+                `INSERT INTO ride (date, hour, city, total_spots, transport_type_id, user_id)
+                 VALUES (CURRENT_DATE, '00:01', 'Madrugada', 3, 1, $1)`,
+                [owner.id],
+            );
+
+            const response = await request(app.getHttpServer()).get('/rides');
+
+            expect(response.body.data).toHaveLength(1);
+        });
+
+        it('returns nothing when the date filter points at a day gone by (PAST-03)', async () => {
+            const owner = await signUpAndLogin('filtropassado@example.com');
+
+            await dataSource.query(
+                `INSERT INTO ride (date, hour, city, total_spots, transport_type_id, user_id)
+                 VALUES (CURRENT_DATE - 5, '08:00', 'Semana passada', 3, 1, $1)`,
+                [owner.id],
+            );
+
+            const pastDate = new Date();
+            pastDate.setDate(pastDate.getDate() - 5);
+            const isoPastDate = pastDate.toLocaleDateString('en-CA');
+
+            const response = await request(app.getHttpServer())
+                .get('/rides')
+                .query({ date: isoPastDate });
+
+            expect(response.status).toBe(200);
+            expect(response.body.data).toHaveLength(0);
+        });
+
+        it('still honours a date filter pointing at a day ahead (PAST-04)', async () => {
+            const owner = await signUpAndLogin('filtrofuturo@example.com');
+
+            await dataSource.query(
+                `INSERT INTO ride (date, hour, city, total_spots, transport_type_id, user_id)
+                 VALUES (CURRENT_DATE + 3, '08:00', 'Daqui a pouco', 3, 1, $1),
+                        (CURRENT_DATE + 9, '08:00', 'Mais tarde', 3, 1, $1)`,
+                [owner.id],
+            );
+
+            const futureDate = new Date();
+            futureDate.setDate(futureDate.getDate() + 3);
+            const isoFutureDate = futureDate.toLocaleDateString('en-CA');
+
+            const response = await request(app.getHttpServer())
+                .get('/rides')
+                .query({ date: isoFutureDate });
+
+            expect(response.body.data).toHaveLength(1);
+            expect(response.body.data[0].city).toBe('Daqui a pouco');
+        });
+
         it('hides a deleted ride from the listing and from the detail route (CANCEL-14)', async () => {
             const owner = await signUpAndLogin('apagada@example.com');
             const ride = await request(app.getHttpServer())

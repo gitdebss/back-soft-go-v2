@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RideEntity, RideStatus } from './entities/ride.entity.js';
-import { In, Not, Repository } from 'typeorm';
+import { In, MoreThanOrEqual, Not, Repository } from 'typeorm';
 import { CreateRideDto } from './dto/create-ride.dto.js';
 import { RideMapper } from '../utils/mappers/ride.mapper.js';
 import { ResponseRideDto } from './dto/response-ride.dto.js';
@@ -12,6 +12,17 @@ import { ResponseCancelRideDto } from './dto/response-cancel-ride.dto.js';
 const RIDE_NOT_FOUND_MESSAGE = 'Corrida não encontrada';
 const NOT_THE_OWNER_MESSAGE = 'Apenas a dona da carona pode cancelá-la';
 const ALREADY_CANCELED_MESSAGE = 'Esta carona já foi cancelada';
+
+// A data local do servidor, não a UTC: `toISOString()` em UTC-3 já devolve o
+// dia seguinte a partir das 21h, e tiraria do mural as caronas de hoje três
+// horas antes da hora.
+function todayIsoDate(): string {
+    const now = new Date();
+    const month = `${now.getMonth() + 1}`.padStart(2, '0');
+    const day = `${now.getDate()}`.padStart(2, '0');
+
+    return `${now.getFullYear()}-${month}-${day}`;
+}
 
 @Injectable()
 export class RideService {
@@ -67,6 +78,12 @@ export class RideService {
         const dateQuery = date
             ?? undefined
 
+        const today = todayIsoDate();
+
+        // Filtrar por uma data que já passou não tem resposta possível: o mural
+        // só mostra o que ainda vai acontecer.
+        if (dateQuery && dateQuery < today) return [];
+
         const rides = await this.rideRepository.find({
             where: {
                 // Uma carona `deleted` é um cancelamento que ninguém precisa
@@ -79,9 +96,9 @@ export class RideService {
                     },
                 }),
 
-                ...(dateQuery && {
-                    date: dateQuery,
-                }),
+                // Sem filtro de data, o corte é hoje. Com filtro, a data pedida
+                // já passou pela checagem acima.
+                date: dateQuery ?? MoreThanOrEqual(today),
             },
             relations: { transportType: true, user: true },
         })

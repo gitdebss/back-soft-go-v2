@@ -240,6 +240,13 @@ describe('RideService', () => {
             expect(rides.find((ride) => ride.id === 11)?.status).toBe(RideStatus.CANCELED);
         });
 
+        it('answers an empty board for a date already gone, without querying (PAST-03)', async () => {
+            const rides = await service.getRides(undefined, '2020-01-01');
+
+            expect(rides).toEqual([]);
+            expect(rideRepository.find).not.toHaveBeenCalled();
+        });
+
         it('queries nothing about presences when no ride matches the filters', async () => {
             rideRepository.find.mockResolvedValue([]);
 
