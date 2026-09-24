@@ -45,7 +45,7 @@ export class SignUpDto {
     @IsOptional()
     @IsString()
     @MaxLength(15)
-    @Matches(/^(\d{11}|\(\d{2}\) \d{5}-\d{4})$/, {
+    @Matches(/^(\d{2}9\d{8}|\(\d{2}\) 9\d{4}-\d{4})$/, {
         message: 'phone must be a valid Brazilian mobile number',
     })
     phone?: string;

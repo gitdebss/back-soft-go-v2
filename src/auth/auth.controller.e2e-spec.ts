@@ -166,8 +166,18 @@ describe('AuthController (e2e)', () => {
                 phone: 'abc',
             });
 
+            // A spec especifica celular: (DD) 9NNNN-NNNN. Um número que não
+            // começa com 9 após o DDD é fixo, não celular.
+            const notAMobile = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Fixo',
+                email: 'telefonefixo@example.com',
+                password: 'senha1234',
+                phone: '(51) 88888-8888',
+            });
+
             expect(tooShort.status).toBe(400);
             expect(notANumber.status).toBe(400);
+            expect(notAMobile.status).toBe(400);
         });
 
         it('rejects a password shorter than 8 characters with 400 (AUTH-03)', async () => {
