@@ -3,12 +3,13 @@ import {
     IsInt,
     IsNotEmpty,
     IsOptional,
-    IsPhoneNumber,
     IsString,
     MaxLength,
     Min,
 } from 'class-validator';
 
+// Nome e telefone saíram do corpo: a carona é atribuída à usuária autenticada
+// a partir do token (AD-001).
 export class CreateRideDto {
     @IsDateString()
     date: string;
@@ -27,11 +28,6 @@ export class CreateRideDto {
     @MaxLength(200)
     complement?: string;
 
-    @IsString()
-    @IsNotEmpty()
-    @MaxLength(100)
-    name: string;
-
     @IsInt()
     @Min(1)
     transportTypeId: number;
@@ -44,9 +40,4 @@ export class CreateRideDto {
     @IsString()
     @MaxLength(200)
     obs?: string;
-
-    @IsOptional()
-    @MaxLength(15)
-    @IsPhoneNumber('BR')
-    phone?: string;
 }

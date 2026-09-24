@@ -2,11 +2,12 @@ import { ResponseUserRide } from "../../user-ride/dto/response-user-ride.dtp.js"
 import { UserRideEntity } from "../../user-ride/entities/user-ride.entity.js";
 
 export class UserRideMapper {
-    static toResponse(user: UserRideEntity): ResponseUserRide {
+    // Nome e telefone da passageira vêm da conta dela (AD-001).
+    static toResponse(userRide: UserRideEntity): ResponseUserRide {
         return {
-            id: user.id,
-            name: user.name,
-            phone: user.phone,
+            id: userRide.id,
+            name: userRide.user.name,
+            phone: userRide.user.phone ?? null,
         };
     }
 }

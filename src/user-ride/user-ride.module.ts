@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module.js';
 import { UserRideController } from './user-ride.controller.js';
 import { UserRideService } from './user-ride.service.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -8,6 +9,7 @@ import { RideEntity } from '../ride/entities/ride.entity.js';
 @Module({
   imports: [
     TypeOrmModule.forFeature([UserRideEntity, RideEntity]),
+    AuthModule,
   ],
   controllers: [UserRideController],
   providers: [UserRideService]

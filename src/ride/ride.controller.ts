@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { CreateRideDto } from './dto/create-ride.dto.js';
 import { RideService } from './ride.service.js';
 import { ApiBody, ApiOperation } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { UserEntity } from '../user/entities/user.entity.js';
 
 @Controller('rides')
 export class RideController {
@@ -24,7 +26,8 @@ export class RideController {
     }
 
     @Post()
-    @ApiOperation({ summary: 'Cria uma corrida' })
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Cria uma corrida vinculada à usuária autenticada' })
     @ApiBody({
         schema: {
             example: {
@@ -33,15 +36,13 @@ export class RideController {
                 city: 'São Leopoldo',
                 transportTypeId: 1,
                 totalSpots: 4,
-                name: 'Débora',
                 complement: 'Centro',
                 obs: 'Vou passar no mercado no caminho',
-                phone: '51999999999',
             },
         },
     })
-    async createRide(@Body() rideRequest: CreateRideDto) {
-        const createdRide = await this.rideService.createRide(rideRequest)
+    async createRide(@Body() rideRequest: CreateRideDto, @Req() req: { user: UserEntity }) {
+        const createdRide = await this.rideService.createRide(rideRequest, req.user.id)
         return createdRide;
     }
 }

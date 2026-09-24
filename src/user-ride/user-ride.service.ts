@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { UserRideEntity } from './entities/user-ride.entity.js';
 import { Repository } from 'typeorm';
-import { CreateUserRideDto } from './dto/create-user-ride.dto.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RideEntity } from '../ride/entities/ride.entity.js';
 import { UserRideMapper } from '../utils/mappers/user-ride.mapper.js';
@@ -16,35 +15,44 @@ export class UserRideService {
         private readonly rideRepository: Repository<RideEntity>
     ) { }
 
-    async createUserRide(userRideRequest: CreateUserRideDto, idRide: number): Promise<ResponseUserRide> {
-
+    // A passageira é sempre a usuária autenticada: nada de identidade vem do
+    // corpo da requisição (AD-001).
+    async createUserRide(idRide: number, userId: number): Promise<ResponseUserRide> {
         const ride = await this.rideRepository.findOne({ where: { id: idRide } });
 
         if (!ride) throw new NotFoundException('Corrida não encontrada');
 
         const newUserRide = this.userRideRepository.create({
-            ...userRideRequest,
-            idRide: idRide, 
+            idRide,
+            userId,
         });
 
-        return UserRideMapper.toResponse(await this.userRideRepository.save(newUserRide));
+        const saved = await this.userRideRepository.save(newUserRide);
+
+        return UserRideMapper.toResponse(await this.findUserRideOrFail(saved.id));
     }
 
-    async getUserRides(): Promise<ResponseUserRide[] | null> {
-        const userRides = await this.userRideRepository.find()
-
-        return userRides.map((user) => UserRideMapper.toResponse(user));
-    }
-
-    async getUserRidesByRideId(idRide: number): Promise<ResponseUserRide[] | null> {
+    async getUserRidesByRideId(idRide: number): Promise<ResponseUserRide[]> {
         const ride = await this.rideRepository.findOne({ where: { id: idRide } });
 
         if (!ride) throw new NotFoundException('Corrida não encontrada');
 
-        const users = await this.userRideRepository.find({
+        const passengers = await this.userRideRepository.find({
             where: { idRide: ride.id },
+            relations: { user: true },
         })
 
-        return users.map((user) => UserRideMapper.toResponse(user));
+        return passengers.map((passenger) => UserRideMapper.toResponse(passenger));
+    }
+
+    private async findUserRideOrFail(id: number): Promise<UserRideEntity> {
+        const userRide = await this.userRideRepository.findOne({
+            where: { id },
+            relations: { user: true },
+        });
+
+        if (!userRide) throw new NotFoundException('Presença não encontrada');
+
+        return userRide;
     }
 }

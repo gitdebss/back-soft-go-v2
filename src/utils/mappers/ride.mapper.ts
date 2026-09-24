@@ -2,6 +2,8 @@ import { ResponseRideDto } from "../../ride/dto/response-ride.dto.js";
 import { RideEntity } from "../../ride/entities/ride.entity.js";
 
 export class RideMapper {
+  // `name` e `phone` continuam no topo da resposta, mas agora vêm da dona da
+  // carona (`ride.user`) em vez de texto digitado no formulário.
   static toResponse(ride: RideEntity, occupiedSpots: number): ResponseRideDto {
     return {
       id: ride.id,
@@ -9,8 +11,8 @@ export class RideMapper {
       hour: ride.hour,
       city: ride.city,
       complement: ride.complement,
-      name: ride.name,
-      phone: ride.phone,
+      name: ride.user.name,
+      phone: ride.user.phone ?? null,
       transportType: {
         id: ride.transportType.id,
         name: ride.transportType.name,

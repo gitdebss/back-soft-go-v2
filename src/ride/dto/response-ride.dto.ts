@@ -12,5 +12,5 @@ export class ResponseRideDto {
     occupiedSpots: number;
     availableSpots: number;
     obs?: string;
-    phone?: string;
+    phone: string | null;
 }

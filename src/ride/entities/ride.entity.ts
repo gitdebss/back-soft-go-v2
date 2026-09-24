@@ -1,6 +1,6 @@
-import { Column, CreateDateColumn, DeleteDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, DeleteDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { TransportRideTypeEntity } from "../../transport-ride-type/entities/transport-ride-type.entity.js";
-import { UserRideEntity } from "../../user-ride/entities/user-ride.entity.js";
+import { UserEntity } from "../../user/entities/user.entity.js";
 
 @Entity({ name: 'ride' })
 export class RideEntity {
@@ -19,9 +19,6 @@ export class RideEntity {
     @Column({ nullable: true })
     complement?: string;
 
-    @Column()
-    name: string;
-
     @ManyToOne(() => TransportRideTypeEntity, { nullable: false })
     @JoinColumn({ name: 'transport_type_id' })
     transportType: TransportRideTypeEntity;
@@ -32,8 +29,14 @@ export class RideEntity {
     @Column({ nullable: true })
     obs?: string;
 
-    @Column({ nullable: true })
-    phone?: string;
+    // Dona da carona. Nome e telefone exibidos no mural vêm daqui (AD-001);
+    // a entidade não guarda mais texto digitado.
+    @Column({ name: 'user_id' })
+    userId: number;
+
+    @ManyToOne(() => UserEntity, { nullable: false })
+    @JoinColumn({ name: 'user_id' })
+    user: UserEntity;
 
     @CreateDateColumn()
     created_at: Date;

@@ -19,7 +19,7 @@ export class RideService {
         private readonly transportTypeRepository: Repository<TransportRideTypeEntity>
     ) { }
 
-    async createRide(dto: CreateRideDto): Promise<ResponseRideDto> {
+    async createRide(dto: CreateRideDto, userId: number): Promise<ResponseRideDto> {
         const { transportTypeId, ...rideData } = dto;
 
         const transportType = await this.transportTypeRepository.findOne({ where: { id: transportTypeId } });
@@ -29,18 +29,16 @@ export class RideService {
         const newRide = this.rideRepository.create({
             ...rideData,
             transportType: { id: transportTypeId },
+            userId,
         });
 
-        return RideMapper.toResponse(await this.rideRepository.save(newRide), 0);
+        const saved = await this.rideRepository.save(newRide);
+
+        return RideMapper.toResponse(await this.findRideOrFail(saved.id), 0);
     }
 
-    async getRideById(id: number): Promise<ResponseRideDto | null> {
-        const ride = await this.rideRepository.findOne({
-            where: { id },
-            relations: { transportType: true },
-        })
-
-        if (!ride) throw new NotFoundException('Corrida não encontrada');
+    async getRideById(id: number): Promise<ResponseRideDto> {
+        const ride = await this.findRideOrFail(id);
 
         const occupiedSpots = await this.userRideRepository.count({
             where: {
@@ -48,7 +46,7 @@ export class RideService {
             },
         })
 
-        return RideMapper.toResponse(ride, occupiedSpots ?? 0);
+        return RideMapper.toResponse(ride, occupiedSpots);
     }
 
     async getRides(transportType?: string, date?: string): Promise<ResponseRideDto[]> {
@@ -71,21 +69,38 @@ export class RideService {
                     date: dateQuery,
                 }),
             },
-            relations: { transportType: true },
+            relations: { transportType: true, user: true },
         })
 
-        const responseRides = await Promise.all(
-            rides.map(async (ride) => {
-                const occupiedSpots = await this.userRideRepository.count({
-                    where: {
-                        idRide: ride.id,
-                    },
-                });
+        const occupiedByRide = await this.countOccupiedSpots(rides.map((ride) => ride.id));
 
-                return RideMapper.toResponse(ride, occupiedSpots);
-            }),
-        );
+        return rides.map((ride) => RideMapper.toResponse(ride, occupiedByRide.get(ride.id) ?? 0));
+    }
 
-        return responseRides;
+    // Uma consulta agregada para todas as caronas da listagem, em vez de um
+    // count por carona dentro do map (era um N+1).
+    private async countOccupiedSpots(rideIds: number[]): Promise<Map<number, number>> {
+        if (rideIds.length === 0) return new Map();
+
+        const rows = await this.userRideRepository
+            .createQueryBuilder('userRide')
+            .select('userRide.id_ride', 'idRide')
+            .addSelect('COUNT(*)', 'total')
+            .where('userRide.id_ride IN (:...rideIds)', { rideIds })
+            .groupBy('userRide.id_ride')
+            .getRawMany<{ idRide: number; total: string }>();
+
+        return new Map(rows.map((row) => [Number(row.idRide), Number(row.total)]));
+    }
+
+    private async findRideOrFail(id: number): Promise<RideEntity> {
+        const ride = await this.rideRepository.findOne({
+            where: { id },
+            relations: { transportType: true, user: true },
+        });
+
+        if (!ride) throw new NotFoundException('Corrida não encontrada');
+
+        return ride;
     }
 }
