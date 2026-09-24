@@ -4,6 +4,7 @@ export interface ResponseUserDto {
   id: number;
   name: string;
   email: string;
+  phone: string | null;
 }
 
 export class UserMapper {
@@ -12,6 +13,7 @@ export class UserMapper {
       id: user.id,
       name: user.name,
       email: user.email,
+      phone: user.phone ?? null,
     };
   }
 }

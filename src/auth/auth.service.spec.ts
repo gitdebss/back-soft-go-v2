@@ -92,6 +92,55 @@ describe('AuthService', () => {
             expect(result.passwordHash).not.toBe('senha1234');
         });
 
+        it('strips the mask and persists the phone as digits only (JOIN-10)', async () => {
+            userService.findByEmail.mockResolvedValue(null);
+            (bcrypt.hash as ReturnType<typeof vi.fn>).mockResolvedValue('$2b$10$hashedvalue');
+            userService.create.mockResolvedValue(existingUser);
+
+            await service.signUp({
+                name: 'Ana',
+                email: 'ana@example.com',
+                password: 'senha1234',
+                phone: '(51) 99999-9999',
+            });
+
+            expect(userService.create).toHaveBeenCalledWith({
+                name: 'Ana',
+                email: 'ana@example.com',
+                passwordHash: '$2b$10$hashedvalue',
+                phone: '51999999999',
+            });
+        });
+
+        it('keeps a digits-only phone untouched (JOIN-10)', async () => {
+            userService.findByEmail.mockResolvedValue(null);
+            (bcrypt.hash as ReturnType<typeof vi.fn>).mockResolvedValue('$2b$10$hashedvalue');
+            userService.create.mockResolvedValue(existingUser);
+
+            await service.signUp({
+                name: 'Ana',
+                email: 'ana@example.com',
+                password: 'senha1234',
+                phone: '51999999999',
+            });
+
+            expect(userService.create.mock.calls[0][0].phone).toBe('51999999999');
+        });
+
+        it('persists undefined - not an empty string - when no phone is sent (JOIN-11)', async () => {
+            userService.findByEmail.mockResolvedValue(null);
+            (bcrypt.hash as ReturnType<typeof vi.fn>).mockResolvedValue('$2b$10$hashedvalue');
+            userService.create.mockResolvedValue(existingUser);
+
+            await service.signUp({
+                name: 'Ana',
+                email: 'ana@example.com',
+                password: 'senha1234',
+            });
+
+            expect(userService.create.mock.calls[0][0].phone).toBeUndefined();
+        });
+
         it('translates a DB unique-violation error (code 23505) into the same ConflictException as the pre-check', async () => {
             userService.findByEmail.mockResolvedValue(null);
             (bcrypt.hash as ReturnType<typeof vi.fn>).mockResolvedValue('$2b$10$hashedvalue');

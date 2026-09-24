@@ -31,6 +31,7 @@ export class AuthService {
                 name: dto.name,
                 email: dto.email,
                 passwordHash,
+                phone: this.toDigits(dto.phone),
             });
         } catch (error) {
             if (this.isUniqueViolation(error)) {
@@ -63,6 +64,15 @@ export class AuthService {
         return {
             accessToken: this.jwtService.sign(payload),
         };
+    }
+
+    // O telefone é armazenado somente com dígitos (AD-002): o link de contato
+    // `wa.me/55<numero>` exige o número puro. Um valor vazio vira `undefined`
+    // para gravar NULL em vez de string vazia.
+    private toDigits(phone?: string): string | undefined {
+        const digits = phone?.replace(/\D/g, '');
+
+        return digits ? digits : undefined;
     }
 
     private isUniqueViolation(error: unknown): boolean {

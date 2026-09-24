@@ -62,6 +62,7 @@ describe('AuthController (e2e)', () => {
                 id: expect.any(Number),
                 name: 'Débora',
                 email: 'debora@example.com',
+                phone: null,
             });
             expect(response.body.data.passwordHash).toBeUndefined();
 
@@ -115,6 +116,12 @@ describe('AuthController (e2e)', () => {
             });
 
             expect(response.status).toBe(201);
+            expect(response.body.data.phone).toBe('51999999999');
+
+            const rows = await dataSource.query('SELECT phone FROM users WHERE email = $1', [
+                'comtelefone@example.com',
+            ]);
+            expect(rows[0].phone).toBe('51999999999');
         });
 
         it('accepts a signup carrying the phone as digits only (JOIN-12)', async () => {
@@ -136,6 +143,12 @@ describe('AuthController (e2e)', () => {
             });
 
             expect(response.status).toBe(201);
+            expect(response.body.data.phone).toBeNull();
+
+            const rows = await dataSource.query('SELECT phone FROM users WHERE email = $1', [
+                'semtelefone@example.com',
+            ]);
+            expect(rows[0].phone).toBeNull();
         });
 
         it('rejects a malformed phone with 400 (JOIN-12)', async () => {
@@ -314,7 +327,28 @@ describe('AuthController (e2e)', () => {
                 id: expect.any(Number),
                 name: 'Perfil User',
                 email: 'perfil@example.com',
+                phone: null,
             });
+        });
+
+        it('returns the stored phone digits in the profile (JOIN-13)', async () => {
+            await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Perfil Com Telefone',
+                email: 'perfilfone@example.com',
+                password: 'senha1234',
+                phone: '(51) 98888-7777',
+            });
+            const loginResponse = await request(app.getHttpServer()).post('/auth/login').send({
+                email: 'perfilfone@example.com',
+                password: 'senha1234',
+            });
+
+            const response = await request(app.getHttpServer())
+                .get('/auth/me')
+                .set('Authorization', `Bearer ${loginResponse.body.data.accessToken}`);
+
+            expect(response.status).toBe(200);
+            expect(response.body.data.phone).toBe('51988887777');
         });
 
         it('responds 401 without a bearer token (AUTH-18)', async () => {
