@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { CreateRideDto } from './dto/create-ride.dto.js';
 import { RideService } from './ride.service.js';
 import { ApiBody, ApiOperation } from '@nestjs/swagger';
@@ -53,5 +53,15 @@ export class RideController {
     async createRide(@Body() rideRequest: CreateRideDto, @Req() req: { user: UserEntity }) {
         const createdRide = await this.rideService.createRide(rideRequest, req.user.id)
         return createdRide;
+    }
+
+    // Sem corpo: quem cancela é a usuária do token, e o desfecho — carona
+    // cancelada e visível, ou removida do mural — é decidido pelo service.
+    @Delete('/:id')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Cancela a corrida com o id passado na url. Restrito à dona da corrida' })
+    async cancelRide(@Param('id', ParseIntPipe) id: number, @Req() req: { user: UserEntity }) {
+        const canceledRide = await this.rideService.cancelRide(id, req.user.id)
+        return canceledRide;
     }
 }
