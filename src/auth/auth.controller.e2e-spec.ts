@@ -106,6 +106,57 @@ describe('AuthController (e2e)', () => {
             expect(rows).toHaveLength(1);
         });
 
+        it('accepts a signup carrying a masked Brazilian mobile number (JOIN-12)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Com Telefone',
+                email: 'comtelefone@example.com',
+                password: 'senha1234',
+                phone: '(51) 99999-9999',
+            });
+
+            expect(response.status).toBe(201);
+        });
+
+        it('accepts a signup carrying the phone as digits only (JOIN-12)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Digitos',
+                email: 'digitos@example.com',
+                password: 'senha1234',
+                phone: '51999999999',
+            });
+
+            expect(response.status).toBe(201);
+        });
+
+        it('creates the account when no phone is sent, because phone is optional (JOIN-11)', async () => {
+            const response = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Sem Telefone',
+                email: 'semtelefone@example.com',
+                password: 'senha1234',
+            });
+
+            expect(response.status).toBe(201);
+        });
+
+        it('rejects a malformed phone with 400 (JOIN-12)', async () => {
+            const tooShort = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Curto',
+                email: 'telefonecurto@example.com',
+                password: 'senha1234',
+                phone: '123',
+            });
+
+            const notANumber = await request(app.getHttpServer()).post('/auth/signup').send({
+                name: 'Letras',
+                email: 'telefoneletras@example.com',
+                password: 'senha1234',
+                phone: 'abc',
+            });
+
+            expect(tooShort.status).toBe(400);
+            expect(notANumber.status).toBe(400);
+        });
+
         it('rejects a password shorter than 8 characters with 400 (AUTH-03)', async () => {
             const response = await request(app.getHttpServer()).post('/auth/signup').send({
                 name: 'Débora',

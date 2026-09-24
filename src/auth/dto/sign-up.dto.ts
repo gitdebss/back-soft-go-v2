@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 // SPEC_DEVIATION: `name` is trimmed via @Transform for validation purposes only
@@ -36,4 +36,17 @@ export class SignUpDto {
     @MinLength(8)
     @Matches(/\S/, { message: 'password must not be blank' })
     password: string;
+
+    // Aceita o número em dígitos puros ou no formato mascarado que o frontend
+    // exibe. A normalização para dígitos acontece no AuthService, não aqui: o
+    // ValidationPipe global não usa { transform: true }, então um @Transform
+    // neste DTO validaria o valor limpo mas entregaria o original ao controller
+    // (mesma limitação já documentada em `name`, acima).
+    @IsOptional()
+    @IsString()
+    @MaxLength(15)
+    @Matches(/^(\d{11}|\(\d{2}\) \d{5}-\d{4})$/, {
+        message: 'phone must be a valid Brazilian mobile number',
+    })
+    phone?: string;
 }
