@@ -127,6 +127,29 @@ describe('RideController / UserRideController (e2e)', () => {
             expect(response.body.data[0].phone).toBeNull();
         });
 
+        it('never leaks a passenger phone in the public listing (JOIN-14)', async () => {
+            const owner = await signUpAndLogin('dona18@example.com', '(51) 91111-0000');
+            const passenger = await signUpAndLogin('sigilo@example.com', '(51) 92222-1111');
+            const ride = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+
+            await request(app.getHttpServer())
+                .post(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            const anonymous = await request(app.getHttpServer()).get('/rides');
+            const asStranger = await request(app.getHttpServer())
+                .get('/rides')
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            // O telefone da dona é público (JOIN-19); o da passageira não.
+            expect(JSON.stringify(anonymous.body)).toContain('51911110000');
+            expect(JSON.stringify(anonymous.body)).not.toContain('51922221111');
+            expect(JSON.stringify(asStranger.body)).not.toContain('51922221111');
+        });
+
         it('stays public, listing rides without a token (JOIN-19)', async () => {
             const response = await request(app.getHttpServer()).get('/rides');
 
@@ -271,6 +294,27 @@ describe('RideController / UserRideController (e2e)', () => {
             ]);
 
             expect([first.status, second.status].sort()).toEqual([201, 409]);
+
+            const rows = await dataSource.query('SELECT id FROM ride_user');
+            expect(rows).toHaveLength(1);
+        });
+
+        // Prova determinística da constraint, sem depender de duas requisições
+        // realmente se cruzarem: insere direto no banco, contornando o service.
+        it('is rejected by the database itself with 23505 on a duplicate insert (JOIN-06)', async () => {
+            const owner = await signUpAndLogin('dona17@example.com');
+            const passenger = await signUpAndLogin('constraint@example.com');
+            const ride = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+
+            const insert = 'INSERT INTO ride_user (id_ride, user_id) VALUES ($1, $2)';
+            await dataSource.query(insert, [ride.body.data.id, passenger.id]);
+
+            await expect(
+                dataSource.query(insert, [ride.body.data.id, passenger.id]),
+            ).rejects.toMatchObject({ code: '23505' });
 
             const rows = await dataSource.query('SELECT id FROM ride_user');
             expect(rows).toHaveLength(1);
