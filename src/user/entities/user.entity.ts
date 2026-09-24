@@ -14,6 +14,9 @@ export class UserEntity {
     @Column({ name: 'password_hash' })
     passwordHash: string;
 
+    @Column({ name: 'phone', type: 'varchar', length: 15, nullable: true })
+    phone?: string;
+
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;
 }
