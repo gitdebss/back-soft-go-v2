@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RideService } from './ride.service.js';
@@ -32,6 +32,16 @@ describe('RideService', () => {
         findOne: ReturnType<typeof vi.fn>;
         create: ReturnType<typeof vi.fn>;
         save: ReturnType<typeof vi.fn>;
+        manager: { transaction: ReturnType<typeof vi.fn> };
+    };
+    // O cancelamento roda dentro de uma transação; este é o manager que ela
+    // entrega ao callback.
+    let transactionManager: {
+        findOne: ReturnType<typeof vi.fn>;
+        count: ReturnType<typeof vi.fn>;
+        update: ReturnType<typeof vi.fn>;
+        delete: ReturnType<typeof vi.fn>;
+        remove: ReturnType<typeof vi.fn>;
     };
     let userRideRepository: {
         count: ReturnType<typeof vi.fn>;
@@ -55,11 +65,24 @@ describe('RideService', () => {
             getRawMany,
         };
 
+        transactionManager = {
+            findOne: vi.fn(),
+            count: vi.fn().mockResolvedValue(0),
+            update: vi.fn(),
+            delete: vi.fn(),
+            remove: vi.fn(),
+        };
+
         rideRepository = {
             find: vi.fn().mockResolvedValue([]),
             findOne: vi.fn(),
             create: vi.fn((data) => data),
             save: vi.fn(),
+            manager: {
+                transaction: vi.fn((callback: (manager: typeof transactionManager) => unknown) =>
+                    callback(transactionManager),
+                ),
+            },
         };
         userRideRepository = {
             count: vi.fn().mockResolvedValue(0),
@@ -255,6 +278,93 @@ describe('RideService', () => {
             expect(ride.isOwner).toBe(false);
             expect(ride.alreadyJoined).toBe(true);
             expect(ride.occupiedSpots).toBe(1);
+        });
+    });
+
+    describe('cancelRide', () => {
+        it('removes a ride nobody joined, taking it off the board (CANCEL-05)', async () => {
+            transactionManager.findOne.mockResolvedValue(buildRide());
+            transactionManager.count.mockResolvedValue(0);
+
+            const result = await service.cancelRide(10, OWNER_ID);
+
+            expect(result).toEqual({ id: 10, status: RideStatus.DELETED });
+            expect(transactionManager.update).toHaveBeenCalledWith(RideEntity, 10, {
+                status: RideStatus.DELETED,
+            });
+        });
+
+        it('cancels a ride with passengers and leaves their rows untouched (CANCEL-06)', async () => {
+            transactionManager.findOne.mockResolvedValue(buildRide());
+            transactionManager.count.mockResolvedValue(2);
+
+            const result = await service.cancelRide(10, OWNER_ID);
+
+            expect(result).toEqual({ id: 10, status: RideStatus.CANCELED });
+            expect(transactionManager.update).toHaveBeenCalledWith(RideEntity, 10, {
+                status: RideStatus.CANCELED,
+            });
+            // O vínculo das passageiras é o que mantém a dona com canal para
+            // avisar cada uma: cancelar não o desfaz.
+            expect(transactionManager.delete).not.toHaveBeenCalled();
+            expect(transactionManager.remove).not.toHaveBeenCalled();
+        });
+
+        it('refuses an account that does not own the ride (CANCEL-09)', async () => {
+            transactionManager.findOne.mockResolvedValue(buildRide());
+
+            const promise = service.cancelRide(10, PASSENGER_ID);
+
+            await expect(promise).rejects.toBeInstanceOf(ForbiddenException);
+            await expect(promise).rejects.toThrow('Apenas a dona da carona pode cancelá-la');
+            expect(transactionManager.update).not.toHaveBeenCalled();
+        });
+
+        it('rejects with 404 when the ride does not exist (CANCEL-10)', async () => {
+            transactionManager.findOne.mockResolvedValue(null);
+
+            const promise = service.cancelRide(404, OWNER_ID);
+
+            await expect(promise).rejects.toBeInstanceOf(NotFoundException);
+            await expect(promise).rejects.toThrow('Corrida não encontrada');
+            expect(transactionManager.update).not.toHaveBeenCalled();
+        });
+
+        it('rejects with 404 when the ride was already removed (CANCEL-10)', async () => {
+            transactionManager.findOne.mockResolvedValue(buildRide({ status: RideStatus.DELETED }));
+
+            const promise = service.cancelRide(10, OWNER_ID);
+
+            await expect(promise).rejects.toBeInstanceOf(NotFoundException);
+            expect(transactionManager.update).not.toHaveBeenCalled();
+        });
+
+        it('rejects with 409 when the ride is already canceled (CANCEL-11)', async () => {
+            transactionManager.findOne.mockResolvedValue(buildRide({ status: RideStatus.CANCELED }));
+
+            const promise = service.cancelRide(10, OWNER_ID);
+
+            await expect(promise).rejects.toBeInstanceOf(ConflictException);
+            await expect(promise).rejects.toThrow('Esta carona já foi cancelada');
+            expect(transactionManager.update).not.toHaveBeenCalled();
+        });
+
+        // A ordem protege quem não é dona de aprender o que existe e em que
+        // estado está.
+        it('answers 404, not 403, for a ride that is not there (CANCEL-09, CANCEL-10)', async () => {
+            transactionManager.findOne.mockResolvedValue(null);
+
+            await expect(service.cancelRide(404, PASSENGER_ID)).rejects.toBeInstanceOf(
+                NotFoundException,
+            );
+        });
+
+        it('answers 403, not 409, when a stranger targets a canceled ride (CANCEL-09)', async () => {
+            transactionManager.findOne.mockResolvedValue(buildRide({ status: RideStatus.CANCELED }));
+
+            await expect(service.cancelRide(10, PASSENGER_ID)).rejects.toBeInstanceOf(
+                ForbiddenException,
+            );
         });
     });
 });

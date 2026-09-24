@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RideEntity, RideStatus } from './entities/ride.entity.js';
 import { In, Not, Repository } from 'typeorm';
@@ -7,6 +7,11 @@ import { RideMapper } from '../utils/mappers/ride.mapper.js';
 import { ResponseRideDto } from './dto/response-ride.dto.js';
 import { TransportRideTypeEntity } from '../transport-ride-type/entities/transport-ride-type.entity.js';
 import { UserRideEntity } from '../user-ride/entities/user-ride.entity.js';
+import { ResponseCancelRideDto } from './dto/response-cancel-ride.dto.js';
+
+const RIDE_NOT_FOUND_MESSAGE = 'Corrida não encontrada';
+const NOT_THE_OWNER_MESSAGE = 'Apenas a dona da carona pode cancelá-la';
+const ALREADY_CANCELED_MESSAGE = 'Esta carona já foi cancelada';
 
 @Injectable()
 export class RideService {
@@ -91,6 +96,47 @@ export class RideService {
         }));
     }
 
+    // A propriedade é verificada aqui, contra o id que veio do token — esconder
+    // o botão no frontend não participa da regra (AD-001).
+    async cancelRide(id: number, userId: number): Promise<ResponseCancelRideDto> {
+        return this.rideRepository.manager.transaction(async (manager) => {
+            // Lock na linha da carona: `createUserRide` lê a mesma linha sob
+            // lock, então uma presença confirmada em paralelo não escapa da
+            // contagem abaixo. O estado proibido seria uma carona `deleted`
+            // com passageira vinculada, invisível para ela.
+            const ride = await manager.findOne(RideEntity, {
+                where: { id },
+                lock: { mode: 'pessimistic_write' },
+            });
+
+            if (!ride || ride.status === RideStatus.DELETED) {
+                throw new NotFoundException(RIDE_NOT_FOUND_MESSAGE);
+            }
+
+            // 404 antes de 403 para não revelar quais ids existem a quem não é
+            // dona; 403 antes de 409 para não lhe revelar o estado da carona.
+            if (ride.userId !== userId) {
+                throw new ForbiddenException(NOT_THE_OWNER_MESSAGE);
+            }
+
+            if (ride.status === RideStatus.CANCELED) {
+                throw new ConflictException(ALREADY_CANCELED_MESSAGE);
+            }
+
+            const passengers = await manager.count(UserRideEntity, { where: { idRide: ride.id } });
+
+            // Com passageiras a carona fica no mural, sinalizada, e o vínculo
+            // delas é preservado: é assim que a dona consegue avisar cada uma.
+            // Sem passageiras não há ninguém a avisar, e o card só sujaria o
+            // mural.
+            const status = passengers > 0 ? RideStatus.CANCELED : RideStatus.DELETED;
+
+            await manager.update(RideEntity, ride.id, { status });
+
+            return { id: ride.id, status };
+        });
+    }
+
     // Uma consulta para toda a listagem, não uma por carona. Sem usuária
     // autenticada não há o que consultar: o mural é público.
     private async findJoinedRideIds(rideIds: number[], currentUserId?: number): Promise<Set<number>> {
@@ -126,7 +172,7 @@ export class RideService {
             relations: { transportType: true, user: true },
         });
 
-        if (!ride) throw new NotFoundException('Corrida não encontrada');
+        if (!ride) throw new NotFoundException(RIDE_NOT_FOUND_MESSAGE);
 
         return ride;
     }
