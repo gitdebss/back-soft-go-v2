@@ -22,8 +22,8 @@ export class UserRideController {
     @Get('/:idRide')
     @UseGuards(JwtAuthGuard)
     @ApiOperation({ summary: 'Retorna as passageiras de uma corrida. Restrito à dona da corrida' })
-    async getUserRidesByRideId(@Param('idRide', ParseIntPipe) idRide: number) {
-        const users = await this.userRideService.getUserRidesByRideId(idRide);
+    async getUserRidesByRideId(@Param('idRide', ParseIntPipe) idRide: number, @Req() req: { user: UserEntity }) {
+        const users = await this.userRideService.getUserRidesByRideId(idRide, req.user.id);
         return users;
     }
 }

@@ -37,7 +37,7 @@ export class RideService {
         return RideMapper.toResponse(await this.findRideOrFail(saved.id), 0);
     }
 
-    async getRideById(id: number): Promise<ResponseRideDto> {
+    async getRideById(id: number, currentUserId?: number): Promise<ResponseRideDto> {
         const ride = await this.findRideOrFail(id);
 
         const occupiedSpots = await this.userRideRepository.count({
@@ -46,10 +46,15 @@ export class RideService {
             },
         })
 
-        return RideMapper.toResponse(ride, occupiedSpots);
+        const joinedRideIds = await this.findJoinedRideIds([ride.id], currentUserId);
+
+        return RideMapper.toResponse(ride, occupiedSpots, {
+            isOwner: currentUserId !== undefined && ride.userId === currentUserId,
+            alreadyJoined: joinedRideIds.has(ride.id),
+        });
     }
 
-    async getRides(transportType?: string, date?: string): Promise<ResponseRideDto[]> {
+    async getRides(transportType?: string, date?: string, currentUserId?: number): Promise<ResponseRideDto[]> {
         const transportTypes = transportType
             ? transportType.split(",").map(Number)
             : undefined
@@ -72,9 +77,27 @@ export class RideService {
             relations: { transportType: true, user: true },
         })
 
-        const occupiedByRide = await this.countOccupiedSpots(rides.map((ride) => ride.id));
+        const rideIds = rides.map((ride) => ride.id);
+        const occupiedByRide = await this.countOccupiedSpots(rideIds);
+        const joinedRideIds = await this.findJoinedRideIds(rideIds, currentUserId);
 
-        return rides.map((ride) => RideMapper.toResponse(ride, occupiedByRide.get(ride.id) ?? 0));
+        return rides.map((ride) => RideMapper.toResponse(ride, occupiedByRide.get(ride.id) ?? 0, {
+            isOwner: currentUserId !== undefined && ride.userId === currentUserId,
+            alreadyJoined: joinedRideIds.has(ride.id),
+        }));
+    }
+
+    // Uma consulta para toda a listagem, não uma por carona. Sem usuária
+    // autenticada não há o que consultar: o mural é público.
+    private async findJoinedRideIds(rideIds: number[], currentUserId?: number): Promise<Set<number>> {
+        if (currentUserId === undefined || rideIds.length === 0) return new Set();
+
+        const rows = await this.userRideRepository.find({
+            where: { userId: currentUserId, idRide: In(rideIds) },
+            select: { idRide: true },
+        });
+
+        return new Set(rows.map((row) => row.idRide));
     }
 
     // Uma consulta agregada para todas as caronas da listagem, em vez de um

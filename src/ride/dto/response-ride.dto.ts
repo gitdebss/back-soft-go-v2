@@ -13,4 +13,6 @@ export class ResponseRideDto {
     availableSpots: number;
     obs?: string;
     phone: string | null;
+    isOwner: boolean;
+    alreadyJoined: boolean;
 }
