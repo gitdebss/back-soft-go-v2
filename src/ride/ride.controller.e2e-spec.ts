@@ -242,6 +242,45 @@ describe('RideController / UserRideController (e2e)', () => {
             expect(asPassenger.body.data[0].isOwner).toBe(false);
             expect(asStranger.body.data[0].alreadyJoined).toBe(false);
         });
+
+        it('hides a deleted ride from the listing and from the detail route (CANCEL-14)', async () => {
+            const owner = await signUpAndLogin('apagada@example.com');
+            const ride = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+
+            await dataSource.query(`UPDATE ride SET status = 'deleted' WHERE id = $1`, [
+                ride.body.data.id,
+            ]);
+
+            const listing = await request(app.getHttpServer()).get('/rides');
+            const detail = await request(app.getHttpServer()).get(`/rides/${ride.body.data.id}`);
+
+            expect(listing.body.data).toHaveLength(0);
+            expect(detail.status).toBe(404);
+        });
+
+        it('keeps a canceled ride in the listing, filters included (CANCEL-15)', async () => {
+            const owner = await signUpAndLogin('cancelada@example.com');
+            const ride = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+
+            await dataSource.query(`UPDATE ride SET status = 'canceled' WHERE id = $1`, [
+                ride.body.data.id,
+            ]);
+
+            const listing = await request(app.getHttpServer()).get('/rides');
+            const filtered = await request(app.getHttpServer())
+                .get('/rides')
+                .query({ transportType: '1', date: '2026-12-01' });
+
+            expect(listing.body.data).toHaveLength(1);
+            expect(listing.body.data[0].status).toBe('canceled');
+            expect(filtered.body.data).toHaveLength(1);
+        });
     });
 
     describe('POST /user-ride/:idRide', () => {

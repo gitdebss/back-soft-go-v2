@@ -3,7 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RideService } from './ride.service.js';
-import { RideEntity } from './entities/ride.entity.js';
+import { RideEntity, RideStatus } from './entities/ride.entity.js';
 import { UserRideEntity } from '../user-ride/entities/user-ride.entity.js';
 import { TransportRideTypeEntity } from '../transport-ride-type/entities/transport-ride-type.entity.js';
 
@@ -18,6 +18,7 @@ function buildRide(overrides: Partial<RideEntity> = {}): RideEntity {
         city: 'São Leopoldo',
         totalSpots: 3,
         userId: OWNER_ID,
+        status: RideStatus.ACTIVE,
         user: { id: OWNER_ID, name: 'Dona da Carona', phone: '51999999999' },
         transportType: { id: 1, name: 'Carro' },
         ...overrides,
@@ -204,6 +205,18 @@ describe('RideService', () => {
             expect(userRideRepository.count).not.toHaveBeenCalled();
         });
 
+        it('carries the ride status through to the response (CANCEL-13)', async () => {
+            rideRepository.find.mockResolvedValue([
+                buildRide({ id: 10 }),
+                buildRide({ id: 11, status: RideStatus.CANCELED }),
+            ]);
+
+            const rides = await service.getRides();
+
+            expect(rides.find((ride) => ride.id === 10)?.status).toBe(RideStatus.ACTIVE);
+            expect(rides.find((ride) => ride.id === 11)?.status).toBe(RideStatus.CANCELED);
+        });
+
         it('queries nothing about presences when no ride matches the filters', async () => {
             rideRepository.find.mockResolvedValue([]);
 
@@ -222,6 +235,14 @@ describe('RideService', () => {
 
             await expect(promise).rejects.toBeInstanceOf(NotFoundException);
             await expect(promise).rejects.toThrow('Corrida não encontrada');
+        });
+
+        it('carries the ride status through to the response (CANCEL-13)', async () => {
+            rideRepository.findOne.mockResolvedValue(buildRide({ status: RideStatus.CANCELED }));
+
+            const ride = await service.getRideById(10);
+
+            expect(ride.status).toBe(RideStatus.CANCELED);
         });
 
         it('carries the same viewer flags as the listing (JOIN-07, JOIN-08)', async () => {

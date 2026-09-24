@@ -32,6 +32,7 @@ export class RideMapper {
       occupiedSpots: occupiedSpots,
       availableSpots: ride.totalSpots - occupiedSpots,
       obs: ride.obs,
+      status: ride.status,
       isOwner: viewer.isOwner,
       alreadyJoined: viewer.alreadyJoined,
     };

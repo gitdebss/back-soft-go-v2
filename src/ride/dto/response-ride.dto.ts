@@ -1,4 +1,5 @@
 import { TransportRideTypeEntity } from "../../transport-ride-type/entities/transport-ride-type.entity.js";
+import { RideStatus } from "../entities/ride.entity.js";
 
 export class ResponseRideDto {
     id: number;
@@ -13,6 +14,7 @@ export class ResponseRideDto {
     availableSpots: number;
     obs?: string;
     phone: string | null;
+    status: RideStatus;
     isOwner: boolean;
     alreadyJoined: boolean;
 }

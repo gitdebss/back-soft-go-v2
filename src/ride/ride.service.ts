@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { RideEntity } from './entities/ride.entity.js';
-import { In, Repository } from 'typeorm';
+import { RideEntity, RideStatus } from './entities/ride.entity.js';
+import { In, Not, Repository } from 'typeorm';
 import { CreateRideDto } from './dto/create-ride.dto.js';
 import { RideMapper } from '../utils/mappers/ride.mapper.js';
 import { ResponseRideDto } from './dto/response-ride.dto.js';
@@ -64,6 +64,10 @@ export class RideService {
 
         const rides = await this.rideRepository.find({
             where: {
+                // Uma carona `deleted` é um cancelamento que ninguém precisa
+                // ver: não havia passageiras para avisar.
+                status: Not(RideStatus.DELETED),
+
                 ...(transportTypes && {
                     transportType: {
                         id: In(transportTypes),
@@ -118,7 +122,7 @@ export class RideService {
 
     private async findRideOrFail(id: number): Promise<RideEntity> {
         const ride = await this.rideRepository.findOne({
-            where: { id },
+            where: { id, status: Not(RideStatus.DELETED) },
             relations: { transportType: true, user: true },
         });
 
