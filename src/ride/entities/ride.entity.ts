@@ -2,6 +2,15 @@ import { Column, CreateDateColumn, DeleteDateColumn, Entity, JoinColumn, ManyToO
 import { TransportRideTypeEntity } from "../../transport-ride-type/entities/transport-ride-type.entity.js";
 import { UserEntity } from "../../user/entities/user.entity.js";
 
+// Estado explícito da carona. `deleted` é o cancelamento de uma carona que
+// ninguém confirmou presença: some do mural. `canceled` é o de uma carona que
+// tem passageiras: continua visível, sinalizada, e o vínculo delas é mantido.
+export enum RideStatus {
+    ACTIVE = 'active',
+    CANCELED = 'canceled',
+    DELETED = 'deleted',
+}
+
 @Entity({ name: 'ride' })
 export class RideEntity {
     @PrimaryGeneratedColumn()
@@ -25,6 +34,11 @@ export class RideEntity {
 
     @Column({ name: 'total_spots' })
     totalSpots: number;
+
+    // `enumName` explícito para a entidade e a migration concordarem sobre o
+    // nome do tipo no Postgres.
+    @Column({ type: 'enum', enum: RideStatus, enumName: 'ride_status_enum', default: RideStatus.ACTIVE })
+    status: RideStatus;
 
     @Column({ nullable: true })
     obs?: string;

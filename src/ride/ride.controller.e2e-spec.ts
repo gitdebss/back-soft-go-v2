@@ -97,6 +97,40 @@ describe('RideController / UserRideController (e2e)', () => {
             expect(response.status).toBe(201);
             expect(response.body.data.name).toBe('Dona semnome@example.com');
         });
+
+        it('stores every new ride as active (CANCEL-01)', async () => {
+            const owner = await signUpAndLogin('ativa@example.com');
+
+            const response = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+
+            expect(response.status).toBe(201);
+
+            const rows = await dataSource.query('SELECT status FROM ride');
+            expect(rows[0].status).toBe('active');
+        });
+
+        it('keeps rides written without a status visible and active (CANCEL-23)', async () => {
+            // Uma carona gravada sem informar `status` é o que a migration
+            // encontra no banco: o default é o que a mantém no mural.
+            const owner = await signUpAndLogin('antiga@example.com');
+
+            await dataSource.query(
+                `INSERT INTO ride (date, hour, city, total_spots, transport_type_id, user_id)
+                 VALUES ('2026-12-01', '08:00', 'São Leopoldo', 3, 1, $1)`,
+                [owner.id],
+            );
+
+            const response = await request(app.getHttpServer()).get('/rides');
+
+            expect(response.status).toBe(200);
+            expect(response.body.data).toHaveLength(1);
+
+            const rows = await dataSource.query('SELECT status FROM ride');
+            expect(rows[0].status).toBe('active');
+        });
     });
 
     describe('GET /rides', () => {
