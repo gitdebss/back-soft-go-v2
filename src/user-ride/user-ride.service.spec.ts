@@ -4,7 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UserRideService } from './user-ride.service.js';
 import { UserRideEntity } from './entities/user-ride.entity.js';
-import { RideEntity } from '../ride/entities/ride.entity.js';
+import { RideEntity, RideStatus } from '../ride/entities/ride.entity.js';
 
 describe('UserRideService', () => {
     let service: UserRideService;
@@ -14,6 +14,7 @@ describe('UserRideService', () => {
         count: ReturnType<typeof vi.fn>;
         create: ReturnType<typeof vi.fn>;
         save: ReturnType<typeof vi.fn>;
+        manager: { transaction: ReturnType<typeof vi.fn> };
     };
     let rideRepository: {
         findOne: ReturnType<typeof vi.fn>;
@@ -22,7 +23,7 @@ describe('UserRideService', () => {
     const OWNER_ID = 1;
     const PASSENGER_ID = 2;
 
-    const ride = { id: 10, userId: OWNER_ID, totalSpots: 3 } as RideEntity;
+    const ride = { id: 10, userId: OWNER_ID, totalSpots: 3, status: RideStatus.ACTIVE } as RideEntity;
 
     const savedPresence = {
         id: 99,
@@ -34,12 +35,32 @@ describe('UserRideService', () => {
     beforeEach(async () => {
         vi.clearAllMocks();
 
+        // Confirmar presença roda em transação, para pegar o mesmo lock que o
+        // cancelamento toma na linha da carona. O manager só encaminha para os
+        // repositórios mockados, para os testes seguirem falando de
+        // comportamento e não de transação.
+        const transactionManager = {
+            findOne: vi.fn((entity: unknown, options: unknown) =>
+                entity === RideEntity
+                    ? rideRepository.findOne(options)
+                    : userRideRepository.findOne(options),
+            ),
+            count: vi.fn((_entity: unknown, options: unknown) => userRideRepository.count(options)),
+            create: vi.fn((_entity: unknown, data: unknown) => userRideRepository.create(data)),
+            save: vi.fn((entity: unknown) => userRideRepository.save(entity)),
+        };
+
         userRideRepository = {
             findOne: vi.fn(),
             find: vi.fn(),
             count: vi.fn(),
             create: vi.fn((data) => data),
             save: vi.fn(),
+            manager: {
+                transaction: vi.fn((callback: (manager: typeof transactionManager) => unknown) =>
+                    callback(transactionManager),
+                ),
+            },
         };
         rideRepository = { findOne: vi.fn() };
 
@@ -134,6 +155,25 @@ describe('UserRideService', () => {
 
             await expect(promise).rejects.not.toBeInstanceOf(ConflictException);
         });
+
+        it('rejects with 409 when the ride was canceled, saving nothing (CANCEL-22)', async () => {
+            rideRepository.findOne.mockResolvedValue({ ...ride, status: RideStatus.CANCELED });
+
+            const promise = service.createUserRide(10, PASSENGER_ID);
+
+            await expect(promise).rejects.toBeInstanceOf(ConflictException);
+            await expect(promise).rejects.toThrow('Esta carona foi cancelada');
+            expect(userRideRepository.save).not.toHaveBeenCalled();
+        });
+
+        it('rejects with 404 when the ride was removed from the board (CANCEL-22)', async () => {
+            rideRepository.findOne.mockResolvedValue({ ...ride, status: RideStatus.DELETED });
+
+            const promise = service.createUserRide(10, PASSENGER_ID);
+
+            await expect(promise).rejects.toBeInstanceOf(NotFoundException);
+            expect(userRideRepository.save).not.toHaveBeenCalled();
+        });
     });
 
     describe('getUserRidesByRideId', () => {
@@ -177,6 +217,17 @@ describe('UserRideService', () => {
 
             await expect(promise).rejects.toBeInstanceOf(NotFoundException);
             await expect(promise).rejects.toThrow('Corrida não encontrada');
+        });
+
+        // Cancelar preserva o vínculo das passageiras justamente para a dona
+        // conseguir avisar cada uma: a lista não pode sumir junto.
+        it('still lists the passengers of a canceled ride for its owner (CANCEL-20)', async () => {
+            rideRepository.findOne.mockResolvedValue({ ...ride, status: RideStatus.CANCELED });
+            userRideRepository.find.mockResolvedValue([savedPresence]);
+
+            const result = await service.getUserRidesByRideId(10, OWNER_ID);
+
+            expect(result).toEqual([{ id: 99, name: 'Passageira', phone: '51999999999' }]);
         });
     });
 });

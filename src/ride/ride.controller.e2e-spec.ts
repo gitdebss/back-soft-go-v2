@@ -384,6 +384,64 @@ describe('RideController / UserRideController (e2e)', () => {
             expect(response.body.message).toBe('Esta carona já foi cancelada');
         });
 
+        it('refuses a presence on a canceled ride (CANCEL-22)', async () => {
+            const { owner, rideId } = await publishRide('fechada@example.com');
+            const passenger = await signUpAndLogin('passageira3@example.com');
+            const latecomer = await signUpAndLogin('atrasada@example.com');
+
+            await request(app.getHttpServer())
+                .post(`/user-ride/${rideId}`)
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            await request(app.getHttpServer())
+                .delete(`/rides/${rideId}`)
+                .set('Authorization', `Bearer ${owner.token}`);
+
+            const response = await request(app.getHttpServer())
+                .post(`/user-ride/${rideId}`)
+                .set('Authorization', `Bearer ${latecomer.token}`);
+
+            expect(response.status).toBe(409);
+            expect(response.body.message).toBe('Esta carona foi cancelada');
+
+            const rows = await dataSource.query(
+                'SELECT user_id FROM ride_user WHERE id_ride = $1',
+                [rideId],
+            );
+            expect(rows).toHaveLength(1);
+        });
+
+        // O estado proibido é uma carona `deleted` com passageira vinculada:
+        // ela ficaria presa a uma carona que nenhuma tela mostra.
+        it('never removes a ride that ended up with a passenger, under a concurrent join (CANCEL-07)', async () => {
+            const { owner, rideId } = await publishRide('disputada@example.com');
+            const passenger = await signUpAndLogin('simultanea@example.com');
+
+            await Promise.allSettled([
+                request(app.getHttpServer())
+                    .delete(`/rides/${rideId}`)
+                    .set('Authorization', `Bearer ${owner.token}`),
+                request(app.getHttpServer())
+                    .post(`/user-ride/${rideId}`)
+                    .set('Authorization', `Bearer ${passenger.token}`),
+            ]);
+
+            const status = await readStatus(rideId);
+            const rows = await dataSource.query('SELECT id FROM ride_user WHERE id_ride = $1', [
+                rideId,
+            ]);
+
+            // Só há dois desfechos válidos: a presença entrou antes e o
+            // cancelamento a enxergou, ou o cancelamento entrou antes e a
+            // presença foi recusada.
+            if (status === 'deleted') {
+                expect(rows).toHaveLength(0);
+            } else {
+                expect(status).toBe('canceled');
+                expect(rows).toHaveLength(1);
+            }
+        });
+
         it('responds 404 when the ride was already removed (CANCEL-10)', async () => {
             const { owner, rideId } = await publishRide('jafoi@example.com');
 
