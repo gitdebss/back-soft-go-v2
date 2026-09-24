@@ -294,6 +294,29 @@ describe('RideController / UserRideController (e2e)', () => {
             return { owner, rideId: ride.body.data.id as number };
         }
 
+        // Espera o Postgres registrar alguma sessão travada em lock. É o sinal
+        // de que o cancelamento chegou até a linha da carona, em vez de um
+        // sleep torcendo para ter dado tempo.
+        async function waitForBlockedQuery(runner: { query: (sql: string) => Promise<unknown> }) {
+            for (let attempt = 0; attempt < 60; attempt++) {
+                const rows = (await runner.query(
+                    `SELECT count(*)::int AS total FROM pg_stat_activity
+                     WHERE datname = current_database()
+                       AND wait_event_type = 'Lock'
+                       AND state = 'active'`,
+                )) as { total: number }[];
+
+                if (rows[0].total > 0) return true;
+
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            // Sem sinal de bloqueio o teste segue mesmo assim: a asserção do
+            // desfecho é o que vale, e travar aqui deixaria a transação aberta
+            // segurando a linha para os testes seguintes.
+            return false;
+        }
+
         async function readStatus(rideId: number): Promise<string> {
             const rows = await dataSource.query('SELECT status FROM ride WHERE id = $1', [rideId]);
 
@@ -439,6 +462,86 @@ describe('RideController / UserRideController (e2e)', () => {
             } else {
                 expect(status).toBe('canceled');
                 expect(rows).toHaveLength(1);
+            }
+        });
+
+        // O teste acima aceita os dois desfechos válidos, então não distingue um
+        // cancelamento que toma o lock de um que não toma. Este força a ordem:
+        // a presença é gravada enquanto o cancelamento está bloqueado.
+        it('waits for a presence that is mid-commit and counts it (CANCEL-07)', async () => {
+            const { owner, rideId } = await publishRide('serializada@example.com');
+            const passenger = await signUpAndLogin('emtransacao@example.com');
+
+            const runner = dataSource.createQueryRunner();
+            await runner.connect();
+            await runner.startTransaction();
+
+            try {
+                // Segura o lock da linha da carona: o cancelamento para aqui.
+                await runner.query('SELECT id FROM ride WHERE id = $1 FOR UPDATE', [rideId]);
+
+                const cancelPromise = request(app.getHttpServer())
+                    .delete(`/rides/${rideId}`)
+                    .set('Authorization', `Bearer ${owner.token}`)
+                    .then((response) => response);
+
+                // Inserir antes de o cancelamento bloquear tornaria o teste
+                // inconclusivo: ele veria a presença de qualquer jeito.
+                await waitForBlockedQuery(runner);
+
+                await runner.query(
+                    'INSERT INTO ride_user (id_ride, user_id) VALUES ($1, $2)',
+                    [rideId, passenger.id],
+                );
+                await runner.commitTransaction();
+
+                const response = await cancelPromise;
+
+                // Sem o lock, o cancelamento teria contado zero passageiras
+                // antes deste commit e removido a carona com ela dentro.
+                expect(response.status).toBe(200);
+                expect(response.body.data.status).toBe('canceled');
+            } finally {
+                await runner.release();
+            }
+        });
+
+        // A direção que produz o estado proibido: a presença estava a caminho
+        // quando a carona saiu do mural.
+        it('refuses a presence that was in flight when the ride was called off (CANCEL-07)', async () => {
+            const { rideId } = await publishRide('emvoo@example.com');
+            const passenger = await signUpAndLogin('naoentra@example.com');
+
+            const runner = dataSource.createQueryRunner();
+            await runner.connect();
+            await runner.startTransaction();
+
+            try {
+                await runner.query('SELECT id FROM ride WHERE id = $1 FOR UPDATE', [rideId]);
+
+                const joinPromise = request(app.getHttpServer())
+                    .post(`/user-ride/${rideId}`)
+                    .set('Authorization', `Bearer ${passenger.token}`)
+                    .then((response) => response);
+
+                await waitForBlockedQuery(runner);
+
+                await runner.query(`UPDATE ride SET status = 'deleted' WHERE id = $1`, [rideId]);
+                await runner.commitTransaction();
+
+                const response = await joinPromise;
+
+                // Sem o lock, a confirmação teria lido a carona ainda ativa e
+                // gravado a presença em uma carona que ninguém mais enxerga.
+                expect(response.status).toBe(404);
+
+                const rows = await dataSource.query(
+                    'SELECT id FROM ride_user WHERE id_ride = $1',
+                    [rideId],
+                );
+                expect(rows).toHaveLength(0);
+            } finally {
+                await runner.release();
             }
         });
 
