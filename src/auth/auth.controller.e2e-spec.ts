@@ -86,7 +86,7 @@ describe('AuthController (e2e)', () => {
             });
 
             expect(response.status).toBe(409);
-            expect(response.body.message).toBe('e-mail já cadastrado');
+            expect(response.body.message).toBe('E-mail já cadastrado');
         });
 
         it('accepts only one of two simultaneous signups with the same email, rejecting the other as duplicate (AUTH-06)', async () => {

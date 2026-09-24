@@ -66,7 +66,7 @@ describe('AuthService', () => {
             });
 
             await expect(promise).rejects.toBeInstanceOf(ConflictException);
-            await expect(promise).rejects.toThrow('e-mail já cadastrado');
+            await expect(promise).rejects.toThrow('E-mail já cadastrado');
             expect(userService.create).not.toHaveBeenCalled();
         });
 
@@ -104,7 +104,7 @@ describe('AuthService', () => {
             });
 
             await expect(promise).rejects.toBeInstanceOf(ConflictException);
-            await expect(promise).rejects.toThrow('e-mail já cadastrado');
+            await expect(promise).rejects.toThrow('E-mail já cadastrado');
         });
     });
 
