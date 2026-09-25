@@ -9,7 +9,13 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe())
   app.useGlobalInterceptors(new TransformInterceptor())
-  app.enableCors();
+  app.enableCors({
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:4173',
+      'https://soft-go-v2-production.up.railway.app',
+    ],
+  });
 
   const config = new DocumentBuilder()
     .setTitle('SoftGo API')
