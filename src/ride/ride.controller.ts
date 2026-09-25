@@ -26,6 +26,21 @@ export class RideController {
         return rides;
     }
 
+    // Declarada antes de `/:id`: se viesse depois, o Nest casaria "mine" com o
+    // parâmetro dinâmico e o ParseIntPipe responderia 400 em vez desta rota.
+    // Guard obrigatória: aqui não existe "mural sem login" -- é a listagem
+    // própria da dona, sem o corte de data que `GET /rides` aplica.
+    @Get('/mine')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Retorna todas as corridas da usuária autenticada, sem corte de data. É possível filtrar por data' })
+    async getMyRides(
+        @Req() req: { user: UserEntity },
+        @Query('date') date?: string,
+    ) {
+        const rides = await this.rideService.getMyRides(req.user.id, date)
+        return rides;
+    }
+
     @Get('/:id')
     @UseGuards(OptionalJwtAuthGuard)
     @ApiOperation({ summary: 'Retorna a corrida com o id passado na url' })

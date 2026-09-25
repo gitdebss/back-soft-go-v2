@@ -363,6 +363,105 @@ describe('RideController / UserRideController (e2e)', () => {
         });
     });
 
+    describe('GET /rides/mine', () => {
+        it('responds 401 without a bearer token (MYRIDES-02)', async () => {
+            const response = await request(app.getHttpServer()).get('/rides/mine');
+
+            expect(response.status).toBe(401);
+        });
+
+        it('returns only rides owned by the authenticated account (MYRIDES-01)', async () => {
+            const owner = await signUpAndLogin('minhas1@example.com');
+            const other = await signUpAndLogin('minhas2@example.com');
+            await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+            await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${other.token}`)
+                .send(validRide());
+
+            const response = await request(app.getHttpServer())
+                .get('/rides/mine')
+                .set('Authorization', `Bearer ${owner.token}`);
+
+            expect(response.status).toBe(200);
+            expect(response.body.data).toHaveLength(1);
+            expect(response.body.data[0].isOwner).toBe(true);
+        });
+
+        it('excludes a deleted ride of the same owner (MYRIDES-06)', async () => {
+            const owner = await signUpAndLogin('minhasapagada@example.com');
+            const ride = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+
+            await dataSource.query(`UPDATE ride SET status = 'deleted' WHERE id = $1`, [
+                ride.body.data.id,
+            ]);
+
+            const response = await request(app.getHttpServer())
+                .get('/rides/mine')
+                .set('Authorization', `Bearer ${owner.token}`);
+
+            expect(response.body.data).toHaveLength(0);
+        });
+
+        it('includes a ride whose date already passed, unlike GET /rides (MYRIDES-04, MYRIDES-11)', async () => {
+            const owner = await signUpAndLogin('minhasinativa@example.com');
+
+            await dataSource.query(
+                `INSERT INTO ride (date, hour, city, total_spots, transport_type_id, user_id)
+                 VALUES (CURRENT_DATE - 5, '08:00', 'Já Rolou', 3, 1, $1)`,
+                [owner.id],
+            );
+
+            const mural = await request(app.getHttpServer()).get('/rides');
+            const mine = await request(app.getHttpServer())
+                .get('/rides/mine')
+                .set('Authorization', `Bearer ${owner.token}`);
+
+            expect(mural.body.data).toHaveLength(0);
+            expect(mine.body.data).toHaveLength(1);
+            expect(mine.body.data[0].city).toBe('Já Rolou');
+        });
+
+        it('filters by an exact date, combined with ownership (MYRIDES-11)', async () => {
+            const owner = await signUpAndLogin('minhasdata@example.com');
+
+            await dataSource.query(
+                `INSERT INTO ride (date, hour, city, total_spots, transport_type_id, user_id)
+                 VALUES (CURRENT_DATE - 10, '08:00', 'Antiga', 3, 1, $1),
+                        (CURRENT_DATE + 10, '08:00', 'Futura', 3, 1, $1)`,
+                [owner.id],
+            );
+
+            const pastDate = new Date();
+            pastDate.setDate(pastDate.getDate() - 10);
+            const isoPastDate = pastDate.toLocaleDateString('en-CA');
+
+            const response = await request(app.getHttpServer())
+                .get('/rides/mine')
+                .query({ date: isoPastDate })
+                .set('Authorization', `Bearer ${owner.token}`);
+
+            expect(response.body.data).toHaveLength(1);
+            expect(response.body.data[0].city).toBe('Antiga');
+        });
+
+        it('is not swallowed by the /:id route (MYRIDES-01)', async () => {
+            const owner = await signUpAndLogin('minhasrota@example.com');
+
+            const response = await request(app.getHttpServer())
+                .get('/rides/mine')
+                .set('Authorization', `Bearer ${owner.token}`);
+
+            expect(response.status).toBe(200);
+        });
+    });
+
     describe('DELETE /rides/:id', () => {
         async function publishRide(email: string) {
             const owner = await signUpAndLogin(email);
