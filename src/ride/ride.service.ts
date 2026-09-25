@@ -113,6 +113,29 @@ export class RideService {
         }));
     }
 
+    // Sem o corte de data que o mural aplica: aqui a dona precisa ver o que já
+    // aconteceu (inativa, para o front) e o que cancelou, não só o que ainda
+    // vai rolar. `deleted` continua fora — nunca aparece em lugar nenhum.
+    async getMyRides(userId: number, date?: string): Promise<ResponseRideDto[]> {
+        const rides = await this.rideRepository.find({
+            where: {
+                userId,
+                status: Not(RideStatus.DELETED),
+                ...(date && { date }),
+            },
+            relations: { transportType: true, user: true },
+        });
+
+        const rideIds = rides.map((ride) => ride.id);
+        const occupiedByRide = await this.countOccupiedSpots(rideIds);
+        const joinedRideIds = await this.findJoinedRideIds(rideIds, userId);
+
+        return rides.map((ride) => RideMapper.toResponse(ride, occupiedByRide.get(ride.id) ?? 0, {
+            isOwner: true,
+            alreadyJoined: joinedRideIds.has(ride.id),
+        }));
+    }
+
     // A propriedade é verificada aqui, contra o id que veio do token — esconder
     // o botão no frontend não participa da regra (AD-001).
     async cancelRide(id: number, userId: number): Promise<ResponseCancelRideDto> {

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { Not } from 'typeorm';
 import { RideService } from './ride.service.js';
 import { RideEntity, RideStatus } from './entities/ride.entity.js';
 import { UserRideEntity } from '../user-ride/entities/user-ride.entity.js';
@@ -254,6 +255,62 @@ describe('RideService', () => {
 
             expect(rides).toEqual([]);
             expect(userRideRepository.createQueryBuilder).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('getMyRides', () => {
+        it('returns only rides owned by the requesting account (MYRIDES-01)', async () => {
+            rideRepository.find.mockResolvedValue([buildRide({ id: 10, userId: OWNER_ID })]);
+
+            await service.getMyRides(OWNER_ID);
+
+            expect(rideRepository.find).toHaveBeenCalledWith(
+                expect.objectContaining({ where: expect.objectContaining({ userId: OWNER_ID }) }),
+            );
+        });
+
+        it('excludes deleted rides from the query (MYRIDES-06)', async () => {
+            rideRepository.find.mockResolvedValue([]);
+
+            await service.getMyRides(OWNER_ID);
+
+            const call = rideRepository.find.mock.calls[0][0];
+            expect(call.where.status).toEqual(Not(RideStatus.DELETED));
+        });
+
+        it('returns a ride dated in the past, unlike getRides (MYRIDES-04, MYRIDES-11)', async () => {
+            rideRepository.find.mockResolvedValue([buildRide({ id: 10, date: '2020-01-01' })]);
+
+            const rides = await service.getMyRides(OWNER_ID);
+
+            expect(rides).toHaveLength(1);
+            expect(rides[0].date).toBe('2020-01-01');
+        });
+
+        it('filters by an exact date when one is given (MYRIDES-11)', async () => {
+            rideRepository.find.mockResolvedValue([]);
+
+            await service.getMyRides(OWNER_ID, '2026-03-05');
+
+            const call = rideRepository.find.mock.calls[0][0];
+            expect(call.where.date).toBe('2026-03-05');
+        });
+
+        it('does not restrict the date when none is given (MYRIDES-12)', async () => {
+            rideRepository.find.mockResolvedValue([]);
+
+            await service.getMyRides(OWNER_ID);
+
+            const call = rideRepository.find.mock.calls[0][0];
+            expect(call.where.date).toBeUndefined();
+        });
+
+        it('reports isOwner true for every ride returned (MYRIDES-01)', async () => {
+            rideRepository.find.mockResolvedValue([buildRide({ id: 10 })]);
+
+            const [ride] = await service.getMyRides(OWNER_ID);
+
+            expect(ride.isOwner).toBe(true);
         });
     });
 
