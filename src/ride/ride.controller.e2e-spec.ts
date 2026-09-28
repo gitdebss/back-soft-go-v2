@@ -953,6 +953,166 @@ describe('RideController / UserRideController (e2e)', () => {
         });
     });
 
+    describe('DELETE /user-ride/:idRide', () => {
+        it('responds 401 without a bearer token and leaves the presence intact (LEAVE-07)', async () => {
+            const owner = await signUpAndLogin('dona-leave1@example.com');
+            const passenger = await signUpAndLogin('passageira-leave1@example.com');
+            const ride = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+
+            await request(app.getHttpServer())
+                .post(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            const response = await request(app.getHttpServer()).delete(
+                `/user-ride/${ride.body.data.id}`,
+            );
+
+            expect(response.status).toBe(401);
+
+            const rows = await dataSource.query('SELECT id FROM ride_user WHERE id_ride = $1', [
+                ride.body.data.id,
+            ]);
+            expect(rows).toHaveLength(1);
+        });
+
+        it('removes the confirmed presence and frees the seat (LEAVE-04, LEAVE-05)', async () => {
+            const owner = await signUpAndLogin('dona-leave2@example.com');
+            const passenger = await signUpAndLogin('passageira-leave2@example.com');
+            const ride = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+
+            await request(app.getHttpServer())
+                .post(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            const response = await request(app.getHttpServer())
+                .delete(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            expect(response.status).toBe(200);
+            expect(response.body.data).toEqual({ id: ride.body.data.id });
+
+            const rows = await dataSource.query('SELECT id FROM ride_user WHERE id_ride = $1', [
+                ride.body.data.id,
+            ]);
+            expect(rows).toHaveLength(0);
+
+            const listing = await request(app.getHttpServer())
+                .get('/rides')
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            expect(listing.body.data[0].occupiedSpots).toBe(0);
+            expect(listing.body.data[0].availableSpots).toBe(3);
+            expect(listing.body.data[0].alreadyJoined).toBe(false);
+        });
+
+        it('lets the passenger confirm presence again after canceling it (LEAVE-06)', async () => {
+            const owner = await signUpAndLogin('dona-leave3@example.com');
+            const passenger = await signUpAndLogin('passageira-leave3@example.com');
+            const ride = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+
+            await request(app.getHttpServer())
+                .post(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            await request(app.getHttpServer())
+                .delete(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            const response = await request(app.getHttpServer())
+                .post(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            expect(response.status).toBe(201);
+
+            const rows = await dataSource.query('SELECT id FROM ride_user WHERE id_ride = $1', [
+                ride.body.data.id,
+            ]);
+            expect(rows).toHaveLength(1);
+        });
+
+        it('responds 404 with the exact message when the caller never confirmed presence there (LEAVE-08)', async () => {
+            const owner = await signUpAndLogin('dona-leave4@example.com');
+            const stranger = await signUpAndLogin('estranha-leave4@example.com');
+            const ride = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+
+            const response = await request(app.getHttpServer())
+                .delete(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${stranger.token}`);
+
+            expect(response.status).toBe(404);
+            expect(response.body.message).toBe('Presença não encontrada');
+        });
+
+        it('responds 404 when the ride does not exist', async () => {
+            const passenger = await signUpAndLogin('passageira-leave5@example.com');
+
+            const response = await request(app.getHttpServer())
+                .delete('/user-ride/999999')
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            expect(response.status).toBe(404);
+            expect(response.body.message).toBe('Presença não encontrada');
+        });
+
+        it("responds 404 for the ride's own owner, who never has a presence row there", async () => {
+            const owner = await signUpAndLogin('dona-leave6@example.com');
+            const ride = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+
+            const response = await request(app.getHttpServer())
+                .delete(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${owner.token}`);
+
+            expect(response.status).toBe(404);
+            expect(response.body.message).toBe('Presença não encontrada');
+        });
+
+        it('responds 409 and keeps the presence linked when the ride was canceled by its owner (LEAVE-09)', async () => {
+            const owner = await signUpAndLogin('dona-leave7@example.com');
+            const passenger = await signUpAndLogin('passageira-leave7@example.com');
+            const ride = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+
+            await request(app.getHttpServer())
+                .post(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            await request(app.getHttpServer())
+                .delete(`/rides/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${owner.token}`);
+
+            const response = await request(app.getHttpServer())
+                .delete(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            expect(response.status).toBe(409);
+            expect(response.body.message).toBe(
+                'Esta carona foi cancelada; sua presença continua registrada para a dona poder te avisar',
+            );
+
+            const rows = await dataSource.query('SELECT id FROM ride_user WHERE id_ride = $1', [
+                ride.body.data.id,
+            ]);
+            expect(rows).toHaveLength(1);
+        });
+    });
+
     describe('GET /user-ride', () => {
         it('responds 401 on the per-ride route without a bearer token (JOIN-24)', async () => {
             const owner = await signUpAndLogin('dona4@example.com');

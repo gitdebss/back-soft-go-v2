@@ -12,6 +12,9 @@ const RIDE_FULL_MESSAGE = 'Esta carona não tem mais vagas';
 const RIDE_NOT_FOUND_MESSAGE = 'Corrida não encontrada';
 const RIDE_CANCELED_MESSAGE = 'Esta carona foi cancelada';
 const NOT_THE_OWNER_MESSAGE = 'Apenas a dona da carona pode ver as passageiras';
+const PRESENCE_NOT_FOUND_MESSAGE = 'Presença não encontrada';
+const CANNOT_LEAVE_CANCELED_RIDE_MESSAGE =
+    'Esta carona foi cancelada; sua presença continua registrada para a dona poder te avisar';
 const POSTGRES_UNIQUE_VIOLATION_CODE = '23505';
 
 @Injectable()
@@ -82,6 +85,30 @@ export class UserRideService {
         return UserRideMapper.toResponse(await this.findUserRideOrFail(saved.id));
     }
 
+    // A busca já é escopada pela identidade de quem chama: não existe uma
+    // "presença de outra pessoa" a proteger aqui, então quem nunca confirmou
+    // presença recebe o mesmo 404 de quem confirmou em outra carona (AD-001).
+    async cancelUserRide(idRide: number, userId: number): Promise<{ id: number }> {
+        const userRide = await this.userRideRepository.findOne({ where: { idRide, userId } });
+
+        if (!userRide) {
+            throw new NotFoundException(PRESENCE_NOT_FOUND_MESSAGE);
+        }
+
+        const ride = await this.rideRepository.findOne({ where: { id: idRide } });
+
+        // O vínculo fica preservado numa carona cancelada: é o canal que a
+        // dona usa para avisar quem tinha confirmado (mesmo racional de
+        // AD-004, agora do lado da passageira).
+        if (ride?.status === RideStatus.CANCELED) {
+            throw new ConflictException(CANNOT_LEAVE_CANCELED_RIDE_MESSAGE);
+        }
+
+        await this.userRideRepository.delete(userRide.id);
+
+        return { id: idRide };
+    }
+
     async getUserRidesByRideId(idRide: number, requesterId: number): Promise<ResponseUserRide[]> {
         const ride = await this.findRideOrFail(idRide);
 
@@ -115,7 +142,7 @@ export class UserRideService {
             relations: { user: true },
         });
 
-        if (!userRide) throw new NotFoundException('Presença não encontrada');
+        if (!userRide) throw new NotFoundException(PRESENCE_NOT_FOUND_MESSAGE);
 
         return userRide;
     }

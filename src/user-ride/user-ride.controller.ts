@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, Post, Req, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Param, ParseIntPipe, Post, Req, UseGuards } from '@nestjs/common';
 import { UserRideService } from './user-ride.service.js';
 import { ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -17,6 +17,16 @@ export class UserRideController {
     async createUserRide(@Param('idRide', ParseIntPipe) idRide: number, @Req() req: { user: UserEntity }) {
         const createdUser = await this.userRideService.createUserRide(idRide, req.user.id)
         return createdUser;
+    }
+
+    // Sem corpo: a passageira cancela a própria presença, identificada pelo
+    // token, na carona com o id passado na url.
+    @Delete('/:idRide')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Cancela a presença confirmada da usuária autenticada na corrida com o id passado na url' })
+    async cancelUserRide(@Param('idRide', ParseIntPipe) idRide: number, @Req() req: { user: UserEntity }) {
+        const canceled = await this.userRideService.cancelUserRide(idRide, req.user.id);
+        return canceled;
     }
 
     @Get('/:idRide')

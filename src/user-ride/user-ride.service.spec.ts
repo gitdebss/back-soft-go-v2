@@ -14,6 +14,7 @@ describe('UserRideService', () => {
         count: ReturnType<typeof vi.fn>;
         create: ReturnType<typeof vi.fn>;
         save: ReturnType<typeof vi.fn>;
+        delete: ReturnType<typeof vi.fn>;
         manager: { transaction: ReturnType<typeof vi.fn> };
     };
     let rideRepository: {
@@ -56,6 +57,7 @@ describe('UserRideService', () => {
             count: vi.fn(),
             create: vi.fn((data) => data),
             save: vi.fn(),
+            delete: vi.fn(),
             manager: {
                 transaction: vi.fn((callback: (manager: typeof transactionManager) => unknown) =>
                     callback(transactionManager),
@@ -187,6 +189,41 @@ describe('UserRideService', () => {
 
             await expect(promise).rejects.toBeInstanceOf(NotFoundException);
             expect(userRideRepository.save).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('cancelUserRide', () => {
+        it('removes the presence and returns the ride id (LEAVE-04)', async () => {
+            userRideRepository.findOne.mockResolvedValue(savedPresence);
+            rideRepository.findOne.mockResolvedValue(ride);
+
+            const result = await service.cancelUserRide(10, PASSENGER_ID);
+
+            expect(userRideRepository.delete).toHaveBeenCalledWith(savedPresence.id);
+            expect(result).toEqual({ id: 10 });
+        });
+
+        it('rejects with 404 and the exact message when the caller never confirmed presence there (LEAVE-08)', async () => {
+            userRideRepository.findOne.mockResolvedValue(null);
+
+            const promise = service.cancelUserRide(10, PASSENGER_ID);
+
+            await expect(promise).rejects.toBeInstanceOf(NotFoundException);
+            await expect(promise).rejects.toThrow('Presença não encontrada');
+            expect(userRideRepository.delete).not.toHaveBeenCalled();
+        });
+
+        it('rejects with 409 and keeps the presence when the ride was canceled by its owner (LEAVE-09)', async () => {
+            userRideRepository.findOne.mockResolvedValue(savedPresence);
+            rideRepository.findOne.mockResolvedValue({ ...ride, status: RideStatus.CANCELED });
+
+            const promise = service.cancelUserRide(10, PASSENGER_ID);
+
+            await expect(promise).rejects.toBeInstanceOf(ConflictException);
+            await expect(promise).rejects.toThrow(
+                'Esta carona foi cancelada; sua presença continua registrada para a dona poder te avisar',
+            );
+            expect(userRideRepository.delete).not.toHaveBeenCalled();
         });
     });
 
