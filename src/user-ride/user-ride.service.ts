@@ -54,10 +54,13 @@ export class UserRideService {
                 throw new ConflictException(ALREADY_JOINED_MESSAGE);
             }
 
-            const occupiedSpots = await manager.count(UserRideEntity, { where: { idRide } });
+            // `totalSpots` nulo é capacidade ilimitada: não há o que lotar.
+            if (ride.totalSpots !== null) {
+                const occupiedSpots = await manager.count(UserRideEntity, { where: { idRide } });
 
-            if (occupiedSpots >= ride.totalSpots) {
-                throw new ConflictException(RIDE_FULL_MESSAGE);
+                if (occupiedSpots >= ride.totalSpots) {
+                    throw new ConflictException(RIDE_FULL_MESSAGE);
+                }
             }
 
             const newUserRide = manager.create(UserRideEntity, { idRide, userId });

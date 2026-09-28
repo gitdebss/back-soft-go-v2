@@ -9,9 +9,9 @@ export class ResponseRideDto {
     name: string;
     transportType: TransportRideTypeEntity;
     complement?: string;
-    totalSpots: number;
+    totalSpots: number | null;
     occupiedSpots: number;
-    availableSpots: number;
+    availableSpots: number | null;
     obs?: string;
     phone: string | null;
     status: RideStatus;

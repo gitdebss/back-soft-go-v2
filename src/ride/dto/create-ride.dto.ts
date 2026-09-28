@@ -32,9 +32,13 @@ export class CreateRideDto {
     @Min(1)
     transportTypeId: number;
 
+    // Opcional: ônibus não tem vaga limitada, então o formulário não envia o
+    // campo para esse tipo de transporte. Quando presente, continua exigindo
+    // ao menos 1 vaga.
+    @IsOptional()
     @IsInt()
     @Min(1)
-    totalSpots: number;
+    totalSpots?: number;
 
     @IsOptional()
     @IsString()

@@ -112,6 +112,22 @@ describe('RideController / UserRideController (e2e)', () => {
             expect(rows[0].status).toBe('active');
         });
 
+        it('accepts a bus ride with no totalSpots, since it has no seat limit', async () => {
+            const owner = await signUpAndLogin('onibus@example.com');
+
+            const response = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send({ ...validRide(), transportTypeId: 3, totalSpots: undefined });
+
+            expect(response.status).toBe(201);
+            expect(response.body.data.totalSpots).toBeNull();
+            expect(response.body.data.availableSpots).toBeNull();
+
+            const rows = await dataSource.query('SELECT total_spots FROM ride');
+            expect(rows[0].total_spots).toBeNull();
+        });
+
         it('keeps rides written without a status visible and active (CANCEL-23)', async () => {
             // Uma carona gravada sem informar `status` é o que a migration
             // encontra no banco: o default é o que a mantém no mural.
@@ -884,6 +900,27 @@ describe('RideController / UserRideController (e2e)', () => {
 
             expect(response.status).toBe(409);
             expect(response.body.message).toBe('Esta carona não tem mais vagas');
+        });
+
+        it('never rejects for capacity on a bus ride, which has no seat limit', async () => {
+            const owner = await signUpAndLogin('dona-onibus@example.com');
+            const first = await signUpAndLogin('passageira1@example.com');
+            const second = await signUpAndLogin('passageira2@example.com');
+            const ride = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send({ ...validRide(), transportTypeId: 3, totalSpots: undefined });
+
+            const firstResponse = await request(app.getHttpServer())
+                .post(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${first.token}`);
+
+            const secondResponse = await request(app.getHttpServer())
+                .post(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${second.token}`);
+
+            expect(firstResponse.status).toBe(201);
+            expect(secondResponse.status).toBe(201);
         });
 
         it('makes occupiedSpots reflect the new confirmation (JOIN-09)', async () => {

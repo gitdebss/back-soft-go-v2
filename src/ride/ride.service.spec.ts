@@ -146,6 +146,20 @@ describe('RideService', () => {
             expect(result.occupiedSpots).toBe(0);
             expect(result.availableSpots).toBe(3);
         });
+
+        it('reports availableSpots as null for a ride with no seat limit (bus)', async () => {
+            transportTypeRepository.findOne.mockResolvedValue({ id: 3, name: 'Ônibus' });
+            rideRepository.save.mockResolvedValue({ id: 10 });
+            rideRepository.findOne.mockResolvedValue(buildRide({ totalSpots: null }));
+
+            const result = await service.createRide(
+                { ...dto, transportTypeId: 3, totalSpots: undefined },
+                OWNER_ID,
+            );
+
+            expect(result.totalSpots).toBeNull();
+            expect(result.availableSpots).toBeNull();
+        });
     });
 
     describe('getRides', () => {
@@ -211,6 +225,15 @@ describe('RideService', () => {
             expect(first?.availableSpots).toBe(1);
             expect(second?.occupiedSpots).toBe(0);
             expect(second?.availableSpots).toBe(3);
+        });
+
+        it('reports availableSpots as null for a ride with no seat limit', async () => {
+            rideRepository.find.mockResolvedValue([buildRide({ totalSpots: null })]);
+
+            const [ride] = await service.getRides();
+
+            expect(ride.totalSpots).toBeNull();
+            expect(ride.availableSpots).toBeNull();
         });
 
         // Guarda contra a volta do N+1: o count por carona dentro do map foi

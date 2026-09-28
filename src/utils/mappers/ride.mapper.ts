@@ -30,7 +30,9 @@ export class RideMapper {
       },
       totalSpots: ride.totalSpots,
       occupiedSpots: occupiedSpots,
-      availableSpots: ride.totalSpots - occupiedSpots,
+      // `total_spots` nulo é capacidade ilimitada: não há "vagas disponíveis"
+      // para calcular.
+      availableSpots: ride.totalSpots === null ? null : ride.totalSpots - occupiedSpots,
       obs: ride.obs,
       status: ride.status,
       isOwner: viewer.isOwner,

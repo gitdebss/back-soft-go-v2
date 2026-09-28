@@ -32,8 +32,10 @@ export class RideEntity {
     @JoinColumn({ name: 'transport_type_id' })
     transportType: TransportRideTypeEntity;
 
-    @Column({ name: 'total_spots' })
-    totalSpots: number;
+    // Nulo é capacidade ilimitada: hoje só o ônibus publica assim, mas a regra
+    // aqui é sobre o dado, não sobre o tipo de transporte.
+    @Column({ name: 'total_spots', type: 'int', nullable: true })
+    totalSpots: number | null;
 
     // `enumName` explícito para a entidade e a migration concordarem sobre o
     // nome do tipo no Postgres.

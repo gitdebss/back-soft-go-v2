@@ -133,6 +133,20 @@ describe('UserRideService', () => {
             expect(userRideRepository.save).not.toHaveBeenCalled();
         });
 
+        it('never rejects for capacity on a ride with no seat limit (bus)', async () => {
+            const unlimitedRide = { ...ride, totalSpots: null } as RideEntity;
+            rideRepository.findOne.mockResolvedValue(unlimitedRide);
+            userRideRepository.findOne
+                .mockResolvedValueOnce(null)
+                .mockResolvedValueOnce(savedPresence);
+            userRideRepository.save.mockResolvedValue(savedPresence);
+
+            await service.createUserRide(10, PASSENGER_ID);
+
+            expect(userRideRepository.count).not.toHaveBeenCalled();
+            expect(userRideRepository.save).toHaveBeenCalledWith({ idRide: 10, userId: PASSENGER_ID });
+        });
+
         it('translates a unique-violation (23505) from a concurrent insert into the duplicate 409 (JOIN-30)', async () => {
             rideRepository.findOne.mockResolvedValue(ride);
             userRideRepository.findOne.mockResolvedValue(null);
