@@ -1066,6 +1066,47 @@ describe('RideController / UserRideController (e2e)', () => {
             expect(response.body.message).toBe('Presença não encontrada');
         });
 
+        it('responds 400 for a non-numeric idRide', async () => {
+            const passenger = await signUpAndLogin('passageira-leave8@example.com');
+
+            const response = await request(app.getHttpServer())
+                .delete('/user-ride/not-a-number')
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            expect(response.status).toBe(400);
+        });
+
+        // O ponto da feature: não basta a busca "achar" a presença certa no
+        // caminho feliz, ela precisa estar escopada pela identidade de quem
+        // chama, não só pelo idRide.
+        it("never removes another passenger's presence, and responds 404 as if there were none (LEAVE-08)", async () => {
+            const owner = await signUpAndLogin('dona-leave9@example.com');
+            const passenger = await signUpAndLogin('passageira-leave9a@example.com');
+            const stranger = await signUpAndLogin('passageira-leave9b@example.com');
+            const ride = await request(app.getHttpServer())
+                .post('/rides')
+                .set('Authorization', `Bearer ${owner.token}`)
+                .send(validRide());
+
+            await request(app.getHttpServer())
+                .post(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${passenger.token}`);
+
+            const response = await request(app.getHttpServer())
+                .delete(`/user-ride/${ride.body.data.id}`)
+                .set('Authorization', `Bearer ${stranger.token}`);
+
+            expect(response.status).toBe(404);
+            expect(response.body.message).toBe('Presença não encontrada');
+
+            const rows = await dataSource.query(
+                'SELECT user_id FROM ride_user WHERE id_ride = $1',
+                [ride.body.data.id],
+            );
+            expect(rows).toHaveLength(1);
+            expect(rows[0].user_id).toBe(passenger.id);
+        });
+
         it("responds 404 for the ride's own owner, who never has a presence row there", async () => {
             const owner = await signUpAndLogin('dona-leave6@example.com');
             const ride = await request(app.getHttpServer())
